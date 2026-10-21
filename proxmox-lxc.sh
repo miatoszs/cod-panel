@@ -34,12 +34,23 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+trap 'echo "HIBA: a script a(z) ${LINENO}. sorban állt le (kód: $?)" >&2' ERR
+
+# Véletlen jelszó SIGPIPE-mentesen: a "tr </dev/urandom | head -c N" minta
+# set -o pipefail mellett 141-es kóddal némán megöli a scriptet.
+rand_pw() {
+  local len="${1:-16}" out
+  out="$(head -c 96 /dev/urandom | base64 | LC_ALL=C tr -dc 'A-Za-z0-9')"
+  printf '%s' "${out:0:len}"
+}
+
 command -v pct >/dev/null || { echo "Ez a script a Proxmox HOST-on fut (pct nem található)."; exit 1; }
 [[ -n "$CTID" ]] || { CTID="$(pvesh get /cluster/nextid)"; echo "Automatikus CTID: $CTID"; }
-[[ -n "$PASSWORD" ]] || PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)"
+[[ -n "$PASSWORD" ]] || PASSWORD="$(rand_pw 16)"
 
 echo "==> Debian template ellenőrzése"
-if ! pveam list "$TEMPLATE_STORAGE" | grep -q "$TEMPLATE"; then
+AVAILABLE_TEMPLATES="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null || true)"
+if ! grep -q "$TEMPLATE" <<<"$AVAILABLE_TEMPLATES"; then
   pveam update
   pveam download "$TEMPLATE_STORAGE" "$TEMPLATE"
 fi

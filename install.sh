@@ -27,6 +27,17 @@ done
 
 [[ $EUID -eq 0 ]] || { echo "Root jogosultság kell (sudo bash install.sh)."; exit 1; }
 
+trap 'echo "HIBA: a telepítő a(z) ${LINENO}. sorban állt le (kód: $?)" >&2' ERR
+
+# Véletlen jelszó SIGPIPE-mentesen: a "tr </dev/urandom | head -c N" minta
+# set -o pipefail mellett 141-es kóddal némán megöli a scriptet.
+rand_pw() {
+  local len="${1:-16}" out
+  out="$(head -c 96 /dev/urandom | base64 | LC_ALL=C tr -dc 'A-Za-z0-9')"
+  printf '%s' "${out:0:len}"
+}
+
+
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 say() { printf '\n\033[1;33m==>\033[0m %s\n' "$*"; }
 
@@ -56,7 +67,7 @@ python3 -m venv "$PREFIX/venv"
 "$PREFIX/venv/bin/pip" install -q -r "$PREFIX/app/requirements.txt"
 
 if [[ -z "$ADMIN_PASS" ]]; then
-  ADMIN_PASS="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 14)"
+  ADMIN_PASS="$(rand_pw 14)"
   GENERATED=1
 fi
 

@@ -30,9 +30,12 @@ A panel ugyanazokat a binárisokat és indítási paramétereket használja, min
 A **Proxmox host shelljében**:
 
 ```bash
-git clone https://github.com/miatoszs/cod-panel /tmp/cod-panel
+rm -rf /tmp/cod-panel && git clone --depth 1 https://github.com/miatoszs/cod-panel /tmp/cod-panel
 bash /tmp/cod-panel/proxmox-lxc.sh --ctid 150 --hostname codpanel --disk 40 --ram 4096 --cores 4
 ```
+
+Újrafuttatható: a `rm -rf` miatt a második próbálkozás sem akad el azon, hogy a
+`/tmp/cod-panel` már létezik.
 
 Létrehoz egy Debian 12 unprivileged LXC-t, feltelepíti a panelt, és kiírja a web felület
 címét + a generált admin jelszót.
@@ -43,7 +46,7 @@ A **konténeren belül, root-ként**:
 
 ```bash
 apt update && apt install -y git
-git clone https://github.com/miatoszs/cod-panel /opt/cod-panel-src
+rm -rf /opt/cod-panel-src && git clone --depth 1 https://github.com/miatoszs/cod-panel /opt/cod-panel-src
 bash /opt/cod-panel-src/install.sh
 ```
 
@@ -166,6 +169,7 @@ GET    /api/system                     rendszer állapot
 | A szerver nem látszik a böngészőben | UDP 28960 nincs nyitva / továbbítva; `sv_hostname` és `net_port` a cfg-ben a panelből jön |
 | CoD4 „authorizemode” hiba | A csomag a CoD4X 1.8 szervert tartalmazza, ami `sv_authorizemode -1`-gyel offline is fut (a panel ezt automatikusan beállítja) |
 | Panel nem indul | `journalctl -u codpanel -f` |
+| A telepítő szó nélkül kilép | Régi verzió (SIGPIPE hiba a jelszógenerálásnál). Húzd le újra a repót — a mostani scriptek hiba esetén ki is írják, melyik sorban álltak le. |
 
 ## Licenc
 

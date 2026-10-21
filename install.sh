@@ -66,6 +66,7 @@ say "Panel fájlok másolása: $PREFIX/app"
 if [[ "$SRC_DIR" != "$PREFIX/app" ]]; then
   cp -r "$SRC_DIR/panel" "$SRC_DIR/requirements.txt" "$PREFIX/app/"
   [[ -f "$SRC_DIR/README.md" ]] && cp "$SRC_DIR/README.md" "$PREFIX/app/"
+  [[ -f "$SRC_DIR/reset-password.sh" ]] && cp "$SRC_DIR/reset-password.sh" "$PREFIX/app/"
 fi
 
 say "Python virtualenv + függőségek"
@@ -114,6 +115,8 @@ cat <<BANNER
    Szolgáltatás: systemctl status|restart|stop codpanel
    Napló       : journalctl -u codpanel -f
    Adatok      : ${PREFIX}/data  (szerverfájlok, mapok, cfg, DB)
+
+   Elfelejtett jelszó: bash ${PREFIX}/app/reset-password.sh
 
    Következő lépés: a felületen "Játékfájlok" -> telepítsd a kívánt
    COD verziót, majd "Szerverek" -> Új szerver.

@@ -67,6 +67,19 @@ A telepítő elintézi:
 
 Első belépésnél a panel megkér, hogy adj meg admin felhasználót és jelszót.
 
+### Elfelejtett admin jelszó
+
+A telepítő a végén kiírja az admin nevet és a generált jelszót. Ha elveszett,
+állíts be újat (a panelt is újraindítja):
+
+```bash
+# a konténerben
+bash /opt/codpanel/app/reset-password.sh admin UjJelszo123
+
+# vagy a Proxmox hostról, jelszó nélkül -> generál egyet és kiírja
+pct exec 150 -- bash /opt/codpanel/app/reset-password.sh
+```
+
 ## Használat
 
 1. **Játékfájlok** fül → a kívánt COD verziónál *Szerverfájlok telepítése*
@@ -170,6 +183,7 @@ GET    /api/system                     rendszer állapot
 | A szerver nem látszik a böngészőben | UDP 28960 nincs nyitva / továbbítva; `sv_hostname` és `net_port` a cfg-ben a panelből jön |
 | CoD4 „authorizemode” hiba | A csomag a CoD4X 1.8 szervert tartalmazza, ami `sv_authorizemode -1`-gyel offline is fut (a panel ezt automatikusan beállítja) |
 | Panel nem indul | `journalctl -u codpanel -f` |
+| Elfelejtett admin jelszó | `bash /opt/codpanel/app/reset-password.sh admin UjJelszo123` |
 | `template: no such template` | Régi verzió: be volt drótozva egy template-verzió. A mostani script a katalógusból választ; ha mégis kell, add meg: `--template <fájlnév>` |
 | A telepítő szó nélkül kilép | Régi verzió (SIGPIPE hiba a jelszógenerálásnál). Húzd le újra a repót — a mostani scriptek hiba esetén ki is írják, melyik sorban álltak le. |
 

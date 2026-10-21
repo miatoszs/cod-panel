@@ -45,11 +45,18 @@ say "Csomagok telepítése (32 bites futtatókörnyezet is)"
 export DEBIAN_FRONTEND=noninteractive
 dpkg --add-architecture i386
 apt-get update -qq
+# kötelező csomagok (a COD binárisok 32 bitesek: lib32gcc + lib32stdc++ nélkül nem indulnak)
 apt-get install -y -qq \
   python3 python3-venv python3-pip \
   curl wget tar xz-utils unzip ca-certificates \
-  lib32gcc-s1 lib32stdc++6 libstdc++6:i386 libcurl4:i386 \
-  || apt-get install -y -qq python3 python3-venv python3-pip curl wget tar xz-utils unzip ca-certificates lib32gcc-s1 lib32stdc++6
+  lib32gcc-s1 lib32stdc++6
+
+# opcionális i386 kiegészítők - a csomagnevek disztribúciónként eltérnek
+# (Debian 13 / Ubuntu 24.04: a 64 bites time_t átállás miatt "t64" utótag),
+# ezért egyenként, hibatűrően telepítjük őket
+for pkg in libstdc++6:i386 libcurl4:i386 libcurl4t64:i386 libtinfo6:i386 zlib1g:i386; do
+  apt-get install -y -qq "$pkg" >/dev/null 2>&1 || true
+done
 
 say "Rendszerfelhasználó: ${PANEL_USER}"
 id -u "$PANEL_USER" &>/dev/null || useradd -r -m -d "$PREFIX" -s /usr/sbin/nologin "$PANEL_USER"

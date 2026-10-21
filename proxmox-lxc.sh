@@ -12,7 +12,7 @@ set -euo pipefail
 
 CTID=""; HOSTNAME="codpanel"; STORAGE="local-lvm"; TEMPLATE_STORAGE="local"
 DISK="40"; RAM="4096"; CORES="4"; BRIDGE="vmbr0"; IPCONF="dhcp"; PASSWORD=""
-TEMPLATE="debian-12-standard_12.7-1_amd64.tar.zst"
+TEMPLATE=""   # üresen: a legfrissebb elérhető Debian template
 REPO="https://github.com/miatoszs/cod-panel"
 
 while [[ $# -gt 0 ]]; do
@@ -48,10 +48,37 @@ command -v pct >/dev/null || { echo "Ez a script a Proxmox HOST-on fut (pct nem 
 [[ -n "$CTID" ]] || { CTID="$(pvesh get /cluster/nextid)"; echo "Automatikus CTID: $CTID"; }
 [[ -n "$PASSWORD" ]] || PASSWORD="$(rand_pw 16)"
 
+# A template-ek verziója folyamatosan változik, ezért nem drótozzuk be:
+# a pveam katalógusból választjuk a legfrissebb Debian 13/12 standard image-et.
+pick_template() {
+  local avail pat found
+  avail="$(pveam available --section system 2>/dev/null | awk '{print $NF}' || true)"
+  for pat in '^debian-13-standard_.*_amd64\.tar\.(zst|gz|xz)$' \
+             '^debian-12-standard_.*_amd64\.tar\.(zst|gz|xz)$'; do
+    found="$(grep -E "$pat" <<<"$avail" | sort -V | tail -n 1)"
+    [[ -n "$found" ]] && { printf '%s' "$found"; return 0; }
+  done
+  return 1
+}
+
 echo "==> Debian template ellenőrzése"
-AVAILABLE_TEMPLATES="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null || true)"
-if ! grep -q "$TEMPLATE" <<<"$AVAILABLE_TEMPLATES"; then
-  pveam update
+pveam update >/dev/null 2>&1 || echo "   (figyelem: a pveam update nem futott le, a gyorsítótárazott listát használom)"
+
+if [[ -z "$TEMPLATE" ]]; then
+  if ! TEMPLATE="$(pick_template)"; then
+    echo "Nem találtam Debian standard template-et. Elérhető rendszer-template-ek:" >&2
+    pveam available --section system | awk '{print "   " $NF}' >&2
+    echo "Adj meg egyet kézzel: --template <fájlnév>" >&2
+    exit 1
+  fi
+  echo "   választott template: $TEMPLATE"
+fi
+
+DOWNLOADED="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null || true)"
+if grep -q "$TEMPLATE" <<<"$DOWNLOADED"; then
+  echo "   már le van töltve"
+else
+  echo "   letöltés: $TEMPLATE"
   pveam download "$TEMPLATE_STORAGE" "$TEMPLATE"
 fi
 

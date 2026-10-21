@@ -37,8 +37,9 @@ bash /tmp/cod-panel/proxmox-lxc.sh --ctid 150 --hostname codpanel --disk 40 --ra
 Újrafuttatható: a `rm -rf` miatt a második próbálkozás sem akad el azon, hogy a
 `/tmp/cod-panel` már létezik.
 
-Létrehoz egy Debian 12 unprivileged LXC-t, feltelepíti a panelt, és kiírja a web felület
-címét + a generált admin jelszót.
+Létrehoz egy unprivileged Debian LXC-t (a pveam katalógus legfrissebb Debian 13, ennek
+hiányában Debian 12 standard template-jéből — `--template` kapcsolóval felülírható),
+feltelepíti a panelt, és kiírja a web felület címét + a generált admin jelszót.
 
 ### B) Meglévő LXC konténerben / VM-ben
 
@@ -169,6 +170,7 @@ GET    /api/system                     rendszer állapot
 | A szerver nem látszik a böngészőben | UDP 28960 nincs nyitva / továbbítva; `sv_hostname` és `net_port` a cfg-ben a panelből jön |
 | CoD4 „authorizemode” hiba | A csomag a CoD4X 1.8 szervert tartalmazza, ami `sv_authorizemode -1`-gyel offline is fut (a panel ezt automatikusan beállítja) |
 | Panel nem indul | `journalctl -u codpanel -f` |
+| `template: no such template` | Régi verzió: be volt drótozva egy template-verzió. A mostani script a katalógusból választ; ha mégis kell, add meg: `--template <fájlnév>` |
 | A telepítő szó nélkül kilép | Régi verzió (SIGPIPE hiba a jelszógenerálásnál). Húzd le újra a repót — a mostani scriptek hiba esetén ki is írják, melyik sorban álltak le. |
 
 ## Licenc

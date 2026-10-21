@@ -54,7 +54,8 @@ apt-get install -y -qq \
 # opcionális i386 kiegészítők - a csomagnevek disztribúciónként eltérnek
 # (Debian 13 / Ubuntu 24.04: a 64 bites time_t átállás miatt "t64" utótag),
 # ezért egyenként, hibatűrően telepítjük őket
-for pkg in libstdc++6:i386 libcurl4:i386 libcurl4t64:i386 libtinfo6:i386 zlib1g:i386; do
+for pkg in libstdc++6:i386 libstdc++5:i386 libcurl4:i386 libcurl4t64:i386 \
+           libtinfo6:i386 zlib1g:i386; do
   apt-get install -y -qq "$pkg" >/dev/null 2>&1 || true
 done
 
@@ -90,6 +91,23 @@ else:
     auth.create_user(sys.argv[1], sys.argv[2])
     print("   admin letrehozva:", sys.argv[1])
 ' "$ADMIN_USER" "$ADMIN_PASS"
+
+# A CoD/CoD2/CoD:UO binárisok libstdc++.so.5-öt kérnek, ami a mai Debianban már
+# nincs csomagban. A panel a Debian archívumából szedi ki a data/lib32 alá.
+say "Régi 32 bites könyvtárak ellenőrzése (libstdc++.so.5)"
+CODPANEL_DATA="$PREFIX/data" PYTHONPATH="$PREFIX/app" "$PREFIX/venv/bin/python" -c '
+from panel import legacylibs
+missing = legacylibs.status()["missing"]
+if not missing:
+    print("   rendben, nincs hianyzo konyvtar")
+else:
+    r = legacylibs.install_missing()
+    for item in r["installed"]:
+        print("   telepitve:", item["lib"])
+    for lib, err in r["failed"].items():
+        print("   SIKERTELEN:", lib, "-", err)
+        print("   a panel Jatekfajlok oldalan ujraprobalhato")
+' || echo "   (kihagyva - a panelben a Játékfájlok oldalon pótolható)"
 
 chown -R "$PANEL_USER:$PANEL_USER" "$PREFIX"
 

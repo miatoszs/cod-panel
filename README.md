@@ -99,7 +99,8 @@ saját JS/CSS fájljaira, így frissítés után automatikusan az újat tölti b
 ## Használat
 
 1. **Játékfájlok** fül → a kívánt COD verziónál *Szerverfájlok telepítése*
-   (letöltés + MD5 ellenőrzés + kibontás, folyamatjelzővel).
+   (letöltés + MD5 ellenőrzés + kibontás, folyamatjelzővel). A csomagok nagyok,
+   a CoD2 például 3,6 GB.
 2. **Szerverek → Új szerver** → játék, név, port, slotok, játékmód, induló map, mod.
 3. A szerver lapon:
    - **Beállítások** — minden dvar űrlapon, egyenként kapcsolható (a „Egyéni dvar-ok” mezőbe bármilyen extra cfg sor mehet),
@@ -135,6 +136,21 @@ oldalakról), majd *Letöltés és telepítés*. A panel:
 
 Fontos: hogy a játékosok is letöltsék a mapot, kapcsold be a *Hálózat és letöltés* alatt a
 `sv_allowDownload`-ot, nagy forgalomhoz pedig a `sv_wwwDownload` + `sv_wwwBaseURL` (HTTP fast download) párost.
+
+## Régi 32 bites könyvtárak (libstdc++.so.5)
+
+A CoD, CoD2 és CoD:UO dedikált szerverek 2004-2006-os, 32 bites binárisok, amelyek a
+GCC 3-as C++ runtime-ot (`libstdc++.so.5`) kérik. Ez Debian 10 óta nincs a tárolókban,
+hiánya esetén a szerver **127-es kóddal, azonnal kilép**:
+
+```
+error while loading shared libraries: libstdc++.so.5: cannot open shared object file
+```
+
+A panel ezt magától kezeli: telepítéskor (és a Játékfájlok oldalon egy gombbal)
+kiszedi a könyvtárat a Debian archívumának `libstdc++5:i386` csomagjából
+(SHA256-tal ellenőrizve), és a saját `data/lib32` könyvtárába teszi. A szerverek
+`LD_LIBRARY_PATH`-ába ez bekerül, a rendszerhez tehát nem kell hozzányúlni.
 
 ## Portok
 
@@ -195,6 +211,7 @@ GET    /api/system                     rendszer állapot
 |---|---|
 | „nem találom a 32 bites libeket” | `dpkg --add-architecture i386 && apt update && apt install -y lib32gcc-s1 lib32stdc++6` |
 | A szerver azonnal kilép | Konzol fül → a kimenetben látszik az ok (hiányzó map, hibás cfg, foglalt port) |
+| `error while loading shared libraries: libstdc++.so.5` | Játékfájlok oldal → *Hiányzó könyvtárak telepítése* (egy kattintás) |
 | `Error: Couldn't load default.cfg` | A játékfájlok nem bontódtak ki teljesen — *Újratelepítés* a Játékfájlok fülön |
 | A szerver nem látszik a böngészőben | UDP 28960 nincs nyitva / továbbítva; `sv_hostname` és `net_port` a cfg-ben a panelből jön |
 | CoD4 „authorizemode” hiba | A csomag a CoD4X 1.8 szervert tartalmazza, ami `sv_authorizemode -1`-gyel offline is fut (a panel ezt automatikusan beállítja) |

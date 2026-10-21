@@ -11,6 +11,7 @@ SERVERFILES_DIR = DATA_DIR / "serverfiles"   # <game>/ -> extracted game files
 DOWNLOAD_DIR = DATA_DIR / "downloads"        # archives + custom map downloads
 LOG_DIR = DATA_DIR / "logs"
 BACKUP_DIR = DATA_DIR / "backups"
+LIB32_DIR = DATA_DIR / "lib32"        # régi 32 bites rendszerkönyvtárak
 DB_PATH = DATA_DIR / "panel.db"
 
 HOST = os.environ.get("CODPANEL_HOST", "0.0.0.0")
@@ -24,7 +25,7 @@ SESSION_MAX_AGE = 60 * 60 * 24 * 7
 
 
 def ensure_dirs() -> None:
-    for d in (DATA_DIR, SERVERFILES_DIR, DOWNLOAD_DIR, LOG_DIR, BACKUP_DIR):
+    for d in (DATA_DIR, SERVERFILES_DIR, DOWNLOAD_DIR, LOG_DIR, BACKUP_DIR, LIB32_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
 

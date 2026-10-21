@@ -10,13 +10,15 @@ import time
 from collections import deque
 from typing import Any
 
-from . import config, db, instances, rcon
+from . import config, db, instances, legacylibs, rcon
 
 STATE_STOPPED = "stopped"
 STATE_STARTING = "starting"
 STATE_RUNNING = "running"
 STATE_STOPPING = "stopping"
 STATE_CRASHED = "crashed"
+
+MAX_RESTARTS = 5  # ennyi sikertelen indítás után nem próbálkozunk tovább
 
 
 class Runner:
@@ -31,11 +33,18 @@ class Runner:
         self.manual_stop = False
         self.restarts = 0
         self.last_error = ""
+        self.missing_lib = ""
+        self._restart_timer: threading.Timer | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._lock = threading.Lock()
 
     # --- console ---------------------------------------------------------
+    LIB_ERROR = "error while loading shared libraries"
+
     def emit(self, line: str) -> None:
+        if self.LIB_ERROR in line:
+            missing = line.split(self.LIB_ERROR, 1)[1].lstrip(": ").split(":")[0].strip()
+            self.missing_lib = missing or "?"
         stamped = f"{time.strftime('%H:%M:%S')} {line.rstrip()}"
         self.lines.append(stamped)
         for q in list(self.subs):
@@ -66,10 +75,12 @@ class Runner:
             cmd = instances.build_command(inst)
             instances.write_cfg(inst)
             cwd = instances.serverfiles_dir(inst["game"])
-            env = dict(os.environ, LD_LIBRARY_PATH=f"{cwd}:{os.environ.get('LD_LIBRARY_PATH', '')}")
+            env = dict(os.environ, LD_LIBRARY_PATH=legacylibs.ld_library_path(cwd))
             self.manual_stop = False
             self.exit_code = None
             self.last_error = ""
+            self.missing_lib = ""
+            self._cancel_restart()
             self.state = STATE_STARTING
             self.emit(f"[panel] indítás: {' '.join(cmd)}")
             try:
@@ -110,14 +121,39 @@ class Runner:
         self.emit(f"[panel] a folyamat kilépett (kód: {code})")
         db.log_event("stop" if was_manual else "crash",
                      f"{inst['name']} leállt (kód: {code})", inst["id"])
-        if not was_manual and inst.get("autorestart") and code != 0:
-            self.restarts += 1
-            delay = min(5 * self.restarts, 60)
-            self.emit(f"[panel] automatikus újraindítás {delay} másodperc múlva "
-                      f"({self.restarts}. kísérlet)")
-            threading.Timer(delay, self._autorestart, args=(inst["id"],)).start()
+        ran_for = time.time() - (self.started_at or time.time())
+        if ran_for > 60:
+            self.restarts = 0            # stabilan futott, tiszta lappal indulunk
+
+        if was_manual or code == 0 or not inst.get("autorestart"):
+            return
+        if self.missing_lib:
+            self.emit(f"[panel] HIÁNYZÓ RENDSZERKÖNYVTÁR: {self.missing_lib}. "
+                      "A Játékfájlok oldalon a 'Hiányzó 32 bites könyvtárak telepítése' "
+                      "gombbal pótolható - automatikus újraindítás kihagyva.")
+            self.state = STATE_CRASHED
+            return
+        if self.restarts >= MAX_RESTARTS:
+            self.emit(f"[panel] {MAX_RESTARTS} sikertelen indítás után leállítom az "
+                      "automatikus újraindítást. Nézd át a fenti hibaüzenetet, "
+                      "majd indítsd kézzel.")
+            return
+        self.restarts += 1
+        delay = min(5 * self.restarts, 60)
+        self.emit(f"[panel] automatikus újraindítás {delay} másodperc múlva "
+                  f"({self.restarts}/{MAX_RESTARTS}. kísérlet)")
+        self._cancel_restart()
+        self._restart_timer = threading.Timer(delay, self._autorestart, args=(inst["id"],))
+        self._restart_timer.daemon = True
+        self._restart_timer.start()
+
+    def _cancel_restart(self) -> None:
+        if self._restart_timer:
+            self._restart_timer.cancel()
+            self._restart_timer = None
 
     def _autorestart(self, iid: str) -> None:
+        self._restart_timer = None
         fresh = db.get_instance(iid)
         if not fresh or not fresh.get("autorestart") or self.is_alive():
             return
@@ -127,10 +163,12 @@ class Runner:
             self.emit(f"[panel] újraindítás sikertelen: {exc}")
 
     def stop(self, timeout: float = 12.0) -> None:
+        self._cancel_restart()
         if not self.is_alive():
             self.state = STATE_STOPPED
             return
         self.manual_stop = True
+        self._cancel_restart()
         self.state = STATE_STOPPING
         self.emit("[panel] leállítás (quit)")
         proc = self.proc
@@ -177,6 +215,7 @@ class Runner:
             "restarts": self.restarts,
             "rss_mb": None,
             "last_error": self.last_error,
+            "missing_lib": self.missing_lib,
         }
         if out["pid"]:
             try:

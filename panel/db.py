@@ -109,11 +109,19 @@ def set_setting(key: str, value: str) -> None:
 # --- events (panel activity log) ----------------------------------------------
 
 def log_event(kind: str, text: str, ref: str | None = None) -> None:
-    with connect() as conn:
-        conn.execute("INSERT INTO events (ts,kind,ref,text) VALUES (?,?,?,?)",
-                     (int(time.time()), kind, ref, text))
-        conn.execute("DELETE FROM events WHERE id NOT IN "
-                     "(SELECT id FROM events ORDER BY id DESC LIMIT 500)")
+    """Naplózás sosem bukhat el: friss adatkönyvtárnál a táblák még hiányozhatnak."""
+    for attempt in (1, 2):
+        try:
+            with connect() as conn:
+                conn.execute("INSERT INTO events (ts,kind,ref,text) VALUES (?,?,?,?)",
+                             (int(time.time()), kind, ref, text))
+                conn.execute("DELETE FROM events WHERE id NOT IN "
+                             "(SELECT id FROM events ORDER BY id DESC LIMIT 500)")
+            return
+        except sqlite3.OperationalError:
+            if attempt == 1:
+                init()
+            # másodszorra sem ment: a napló nem állíthatja meg a műveletet
 
 
 def list_events(limit: int = 100) -> list[dict[str, Any]]:

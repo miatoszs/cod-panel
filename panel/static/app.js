@@ -198,6 +198,7 @@ async function viewDashboard() {
       ${stat('Szabad memória', sys.mem_free_mb, 'MB / ' + sys.mem_total_mb)}
       ${stat('Szabad hely', sys.disk_free_gb, 'GB / ' + sys.disk_total_gb)}
     </div>
+    ${libWarning((sys.libs && sys.libs.missing) || [], null)}
     ${sys.lib32 ? '' : `<div class="card" style="border-color:rgba(255,93,93,.4);margin-bottom:18px">
       <b style="color:var(--red)">Figyelem:</b> nem találom a 32 bites libeket (lib32gcc / libstdc++ i386).
       A COD szerverek 32 bites binárisok, ezek nélkül nem indulnak.
@@ -211,6 +212,7 @@ async function viewDashboard() {
         || '<tr><td style="color:var(--muted)">Nincs esemény.</td></tr>'}</tbody></table></div>
     </div>`;
   wireServerCards();
+  $$('[data-libs]').forEach(b => b.onclick = () => installLibs(b, b.dataset.libs || null));
   $('#new').onclick = newServerModal;
   startPoll(6000, 'dashboard', () => viewDashboard().catch(() => {}));
 }
@@ -363,7 +365,7 @@ async function viewServer() {
 function tabOverview(el, i) {
   const st = i.status || {};
   const pl = st.playerlist || [];
-  el.innerHTML = `<div class="grid c2">
+  el.innerHTML = `${st.missing_lib ? libWarning([st.missing_lib], i.game) : ''}<div class="grid c2">
     <div class="card"><h3>Állapot</h3><div class="kv">
       <span class="k">Állapot</span><span>${stateBadge(st)}</span>
       <span class="k">PID</span><span class="mono">${st.pid || '-'}</span>
@@ -412,6 +414,7 @@ function tabOverview(el, i) {
       catch (e2) { fail(e2); }
     }
   };
+  $$('[data-libs]').forEach(b => b.onclick = () => installLibs(b, b.dataset.libs || null));
   $$('[data-cmd]').forEach(b => b.onclick = () => send(b.dataset.cmd));
   $$('[data-kick]').forEach(b => b.onclick = () => send(`clientkick ${b.dataset.kick}`));
   $('#qgo').onclick = () => send(`g_gametype ${$('#qgt').value}; map ${$('#qmap').value}`);
@@ -686,6 +689,28 @@ function tabCfg(el, i) {
 }
 
 /* ---------------- games ---------------- */
+async function installLibs(btn, gid) {
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="loading"></span> telepítés...'; }
+  try {
+    const r = await POST('/api/libs/install', gid ? { game: gid } : {});
+    const names = (r.installed || []).map(x => x.lib).join(', ');
+    toast(names ? 'Telepítve: ' + names : 'Nem volt mit telepíteni.', 'ok');
+    render();
+  } catch (e) { fail(e); if (btn) { btn.disabled = false; btn.textContent = 'Újra'; } }
+}
+
+function libWarning(missing, gid) {
+  if (!missing || !missing.length) return '';
+  return `<div class="card" style="border-color:rgba(255,93,93,.45);margin-bottom:18px">
+    <div class="card-head"><h3 style="color:var(--red)">Hiányzó 32 bites rendszerkönyvtár</h3></div>
+    <p style="margin:0 0 12px;color:var(--muted);font-size:13.5px">
+      A szerver nem indul el, amíg ez hiányzik: <span class="mono">${esc(missing.join(', '))}</span>.
+      A CoD / CoD2 / CoD:UO binárisok a GCC 3-as C++ runtime-ot kérik, ami a mai
+      disztribúciókban már nincs benne. A panel a Debian archívumából szerzi be, és a
+      saját <span class="mono">data/lib32</span> könyvtárába teszi — a rendszerhez nem nyúl.</p>
+    <button class="btn primary" data-libs="${gid || ''}">${ICON.download} Hiányzó könyvtárak telepítése</button>
+  </div>`;
+}
 async function viewGames() {
   const games = await GET('/api/games');
   S.games = games;
@@ -701,6 +726,10 @@ async function viewGames() {
         <span class="k">Játékmódok</span><span>${g.gametypes.map(x => x[0]).join(', ')}</span>
         <span class="k">Méret</span><span>${g.size_mb} MB</span>
         <span class="k">Útvonal</span><span class="mono" style="font-size:11px">${esc(g.path)}</span>
+        ${(g.legacy_libs || []).length ? `<span class="k">Extra lib</span><span>${
+          (g.missing_libs || []).length
+            ? `<span class="badge err">${esc(g.missing_libs.join(', '))} hiányzik</span>`
+            : `<span class="badge on">${esc(g.legacy_libs.join(', '))} rendben</span>`}</span>` : ''}
       </div>
       ${busy ? `<div class="bar" style="margin-bottom:8px"><i style="width:${g.percent}%"></i></div>
         <div class="help">${esc(g.message)}</div>` : ''}
@@ -714,10 +743,13 @@ async function viewGames() {
       <div class="help" style="margin-top:8px">Forrás: <span class="mono">${esc(g.archive_url)}</span></div>
     </div>`;
   };
+  const allMissing = [...new Set(games.flatMap(g => g.missing_libs || []))];
   $('#main').innerHTML = `
     <div class="topbar"><div><h1>Játékfájlok</h1>
       <div class="sub">Egy kattintásos telepítés a LinuxGSM tükrökről (MD5 ellenőrzéssel)</div></div></div>
+    ${libWarning(allMissing, null)}
     <div class="grid c2">${games.map(card).join('')}</div>`;
+  $$('[data-libs]').forEach(b => b.onclick = () => installLibs(b, b.dataset.libs || null));
   $$('[data-install]').forEach(b => b.onclick = async () => {
     try {
       await POST(`/api/games/${b.dataset.install}/install`, { force: true });

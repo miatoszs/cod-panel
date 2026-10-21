@@ -12,7 +12,8 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Web
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__, auth, config, db, games, installer, instances, maps, rcon, runner
+from . import (__version__, auth, config, db, games, installer, instances, legacylibs,
+               maps, rcon, runner)
 
 app = FastAPI(title="COD Panel", version=__version__, docs_url="/api/docs")
 
@@ -136,7 +137,9 @@ def _set_cookie(resp: JSONResponse, token: str) -> None:
 async def api_games() -> list[dict[str, Any]]:
     out = []
     for item in games.catalog():
-        out.append({**item, **installer.state(item["id"])})
+        out.append({**item, **installer.state(item["id"]),
+                    "missing_libs": legacylibs.missing_libs(item["id"]),
+                    "legacy_libs": legacylibs.required_libs(item["id"])})
     return out
 
 
@@ -154,6 +157,9 @@ async def api_game_install(gid: str, request: Request) -> dict[str, Any]:
     data = await _body(request)
     try:
         installer.install_async(gid, bool(data.get("force")))
+        if legacylibs.missing_libs(gid):
+            asyncio.get_running_loop().run_in_executor(
+                None, legacylibs.install_missing, gid)
     except RuntimeError as exc:
         raise HTTPException(409, str(exc)) from exc
     return installer.state(gid)
@@ -173,6 +179,23 @@ async def api_game_remove(gid: str) -> dict[str, Any]:
             raise HTTPException(409, "Előbb állítsd le a játék futó szervereit.")
     installer.remove(gid)
     return installer.state(gid)
+
+
+@app.get("/api/libs")
+async def api_libs() -> dict[str, Any]:
+    return legacylibs.status()
+
+
+@app.post("/api/libs/install")
+async def api_libs_install(request: Request) -> dict[str, Any]:
+    data = await _body(request)
+    gid = data.get("game")
+    if gid and gid not in games.GAMES:
+        raise HTTPException(404, "Nincs ilyen játék.")
+    result = await asyncio.to_thread(legacylibs.install_missing, gid)
+    if result["failed"] and not result["installed"]:
+        raise HTTPException(502, "; ".join(f"{k}: {v}" for k, v in result["failed"].items()))
+    return result
 
 
 # --- maps ----------------------------------------------------------------------
@@ -433,6 +456,7 @@ async def api_system() -> dict[str, Any]:
         "instances": len(db.list_instances()),
         "running": running,
         "lib32": _lib32_present(),
+        "libs": legacylibs.status(),
     }
 
 

@@ -185,6 +185,7 @@ LIMIT_DESC = {
 
 GAMES: dict[str, dict[str, Any]] = {
     "cod": {
+        "legacy_libs": ["libstdc++.so.5"],
         "name": "Call of Duty",
         "short": "COD",
         "lgsm": "codserver",
@@ -212,6 +213,7 @@ GAMES: dict[str, dict[str, Any]] = {
         "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
     },
     "coduo": {
+        "legacy_libs": ["libstdc++.so.5"],
         "name": "Call of Duty: United Offensive",
         "short": "COD:UO",
         "lgsm": "coduoserver",
@@ -241,6 +243,7 @@ GAMES: dict[str, dict[str, Any]] = {
         "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
     },
     "cod2": {
+        "legacy_libs": ["libstdc++.so.5"],
         "name": "Call of Duty 2",
         "short": "COD2",
         "lgsm": "cod2server",

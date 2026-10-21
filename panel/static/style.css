@@ -122,11 +122,18 @@ main { flex: 1; min-width: 0; padding: 26px 30px 60px; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 12.5px; color: var(--muted); font-weight: 550; }
 .field .help { font-size: 11.5px; color: #6c7a92; }
-input[type=text], input[type=number], input[type=password], select, textarea {
+/* minden beviteli mező - a type nélküli input is (az alapértelmezett
+   böngészőkeret különben kilógott a sötét témából) */
+input:not([type=checkbox]):not([type=radio]):not([type=file]),
+select, textarea {
   background: #0e131c; border: 1px solid var(--border); border-radius: 10px;
   padding: 9px 11px; width: 100%; outline: none; transition: .14s;
+  color: var(--text); font-size: 14px;
 }
-input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(242,163,60,.12); }
+input:not([type=checkbox]):not([type=radio]):focus,
+select:focus, textarea:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px rgba(242,163,60,.12);
+}
 textarea { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 13px; resize: vertical; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0 16px; }
 
@@ -326,5 +333,8 @@ input:autofill, textarea:autofill, select:autofill {
   color: var(--text) !important;
 }
 /* biztos, ami biztos: a szövegszín soha ne öröklődjön világos háttérhez */
-input, select, textarea { color: var(--text); background-color: #0e131c; }
+input:not([type=checkbox]):not([type=radio]):not([type=file]),
+select, textarea { color: var(--text); background-color: #0e131c; }
+/* a szám-mezők pörgetőgombjai is a sötét témához igazodjanak */
+input[type=number] { color-scheme: dark; }
 input::placeholder, textarea::placeholder { color: #5f6d85; opacity: 1; }

@@ -57,10 +57,15 @@ def new_instance(data: dict[str, Any]) -> dict[str, Any]:
     dvars = games.default_dvars(gid)
     dvars["g_log"] = f"{iid}.log"
     dvars.update(data.get("dvars") or {})
+    # minden dvar külön be/kikapcsolható; alapból az üres, opcionális mezők vannak kikapcsolva
+    off = set(data.get("dvars_off") if data.get("dvars_off") is not None
+              else games.default_disabled(gid))
     if data.get("hostname"):
         dvars["sv_hostname"] = data["hostname"]
     if data.get("rcon_password"):
         dvars["rcon_password"] = data["rcon_password"]
+        off.discard("rcon_password")
+    off.discard("sv_hostname")
 
     inst = {
         "id": iid,
@@ -75,6 +80,8 @@ def new_instance(data: dict[str, Any]) -> dict[str, Any]:
         "rotation": data.get("rotation") or [],
         "limits": data.get("limits") or {},
         "dvars": dvars,
+        "dvars_off": sorted(off),
+        "gametype_enabled": bool(data.get("gametype_enabled", True)),
         "extra_params": data.get("extra_params") or "",
         "autostart": bool(data.get("autostart", False)),
         "autorestart": bool(data.get("autorestart", True)),
@@ -90,9 +97,11 @@ def update_instance(inst: dict[str, Any], data: dict[str, Any]) -> dict[str, Any
     for key in ("port", "maxplayers"):
         if data.get(key):
             inst[key] = int(data[key])
-    for key in ("autostart", "autorestart"):
+    for key in ("autostart", "autorestart", "gametype_enabled"):
         if key in data:
             inst[key] = bool(data[key])
+    if "dvars_off" in data:
+        inst["dvars_off"] = sorted({str(k) for k in (data["dvars_off"] or [])})
     if "rotation" in data:
         inst["rotation"] = data["rotation"] or []
     if "limits" in data:
@@ -128,6 +137,18 @@ def _slug(text: str) -> str:
 
 # --- config file ---------------------------------------------------------------
 
+def disabled_dvars(inst: dict[str, Any]) -> set[str]:
+    """Dvars the user switched off - these are left out of the cfg entirely."""
+    value = inst.get("dvars_off")
+    if value is None:
+        value = games.default_disabled(inst["game"])
+    return {str(k) for k in value}
+
+
+def gametype_enabled(inst: dict[str, Any]) -> bool:
+    return bool(inst.get("gametype_enabled", True))
+
+
 def rotation_string(inst: dict[str, Any]) -> str:
     parts = []
     for entry in inst.get("rotation") or []:
@@ -148,17 +169,26 @@ def render_cfg(inst: dict[str, Any]) -> str:
     ]
     dvars = dict(inst.get("dvars") or {})
     dvars.setdefault("g_log", f"{inst['id']}.log")
+    off = disabled_dvars(inst)
 
     lines.append("// --- alap beállítások ---")
     for key in sorted(dvars):
         val = dvars[key]
-        if val is None or val == "":
+        if key in off or val is None or val == "":
             continue
         lines.append(f'set {key} "{val}"')
+    skipped = sorted(k for k in off if dvars.get(k))
+    if skipped:
+        lines.append("// kikapcsolt dvar-ok (a panelben lehet visszakapcsolni): "
+                     + ", ".join(skipped))
 
     lines.append("")
     lines.append("// --- játékmód és limitek ---")
-    lines.append(f'set g_gametype "{inst["gametype"]}"')
+    if gametype_enabled(inst):
+        lines.append(f'set g_gametype "{inst["gametype"]}"')
+    else:
+        lines.append(f'// g_gametype kikapcsolva a panelben (a mod/cfg dönti el) '
+                     f'- a panel {inst["gametype"]} módot feltételez')
     for key in sorted(inst.get("limits") or {}):
         val = (inst["limits"] or {})[key]
         if val not in (None, ""):
@@ -206,7 +236,8 @@ def build_command(inst: dict[str, Any]) -> list[str]:
     mod = (inst.get("mod") or "").strip()
     if mod:
         cmd += ["+set", "fs_game", mod]
-    cmd += ["+set", "g_gametype", inst["gametype"]]
+    if gametype_enabled(inst):
+        cmd += ["+set", "g_gametype", inst["gametype"]]
     if inst.get("extra_params"):
         cmd += shlex.split(inst["extra_params"])
     cmd += ["+exec", cfg_name(inst)]

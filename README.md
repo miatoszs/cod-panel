@@ -14,6 +14,7 @@ indítási paraméterek, de **CLI helyett böngészőből** kezelhetően. Proxmo
 | **Egy kattintásos játékfájl-telepítés** | A LinuxGSM tükrökről, MD5 ellenőrzéssel |
 | **Egy kattintásos custom map** | URL-ről letöltve vagy fájlból feltöltve (.iwd / .pk3 / .ff / .zip), utána azonnal kiválasztható |
 | **Minden beállítás űrlapon** | gamemode, map, slotok, friendly fire, killcam, limitek, rcon, fast download, sv_pure, gravitáció… |
+| **Dvar-onkénti be/ki kapcsoló** | minden beállítás külön kikapcsolható (akkor ki sem kerül a cfg-be), és mindegyik alatt ott a magyar nyelvű magyarázat, hogy mit csinál |
 | **Map rotáció szerkesztő** | sorrend, játékmód maponként, `sv_mapRotation` generálás |
 | **Élő konzol** | WebSocket, közvetlen stdin + RCON, játékoslista, kick, azonnali map váltás |
 | **Felügyelet** | automatikus indítás boot-kor, automatikus újraindítás összeomlás után, RAM/uptime/játékosszám |
@@ -68,12 +69,25 @@ Első belépésnél a panel megkér, hogy adj meg admin felhasználót és jelsz
    (letöltés + MD5 ellenőrzés + kibontás, folyamatjelzővel).
 2. **Szerverek → Új szerver** → játék, név, port, slotok, játékmód, induló map, mod.
 3. A szerver lapon:
-   - **Beállítások** — minden dvar űrlapon (a „Egyéni dvar-ok” mezőbe bármilyen extra cfg sor mehet),
+   - **Beállítások** — minden dvar űrlapon, egyenként kapcsolható (a „Egyéni dvar-ok” mezőbe bármilyen extra cfg sor mehet),
    - **Map rotáció** — sorrend + játékmód maponként,
    - **Mapok** — custom tartalom telepítése,
    - **Konzol** — élő kimenet, parancsküldés (konzol vagy RCON),
    - **cfg / parancs** — a generált `<id>.cfg` és a teljes indítási parancs.
 4. **Indítás** gomb. Minden mentés újraírja a cfg-t; az „Mentés + újraindítás” azonnal alkalmazza.
+
+### Beállítások be- és kikapcsolása
+
+Minden beállítás egy önálló blokk: a neve, mellette a valódi dvar neve (pl. `sv_hostname`),
+egy **aktív / kikapcsolva** kapcsoló, és alatta egy mondatban, hogy pontosan mit csinál.
+
+- **Aktív** (alapértelmezett a legtöbb beállításnál, köztük a `sv_hostname` és a `g_gametype`):
+  a panel beleírja a generált cfg-be.
+- **Kikapcsolva**: a sor egyáltalán nem kerül a cfg-be, így a mod, a saját cfg sorok vagy a
+  játék alapértéke dönt. A `g_gametype` kikapcsolva az indítási parancsból is kimarad.
+
+Alapból azok a mezők vannak kikapcsolva, amelyeknek nincs értelmes alapértékük
+(jelszavak, HTTP letöltési URL) — ezeket egy kattintással lehet bekapcsolni.
 
 ### Custom map egy kattintással
 

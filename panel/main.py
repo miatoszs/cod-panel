@@ -143,7 +143,9 @@ async def api_games() -> list[dict[str, Any]]:
 @app.get("/api/games/{gid}/dvars")
 async def api_game_dvars(gid: str) -> dict[str, Any]:
     _game(gid)
-    return {"groups": games.dvar_groups(gid), "limit_dvars": games.GAMES[gid]["limit_dvars"]}
+    return {"groups": games.dvar_groups(gid), "limit_dvars": games.GAMES[gid]["limit_dvars"],
+            "limit_desc": games.LIMIT_DESC, "gametype_desc": games.GAMETYPE_DESC,
+            "default_off": games.default_disabled(gid)}
 
 
 @app.post("/api/games/{gid}/install")
@@ -271,6 +273,10 @@ async def api_instance(iid: str) -> dict[str, Any]:
         "mods": maps.mod_dirs(gid),
         "dvar_groups": games.dvar_groups(gid),
         "limit_dvars": games.GAMES[gid]["limit_dvars"],
+        "limit_desc": games.LIMIT_DESC,
+        "gametype_desc": games.GAMETYPE_DESC,
+        "dvars_off": list(instances.disabled_dvars(inst)),
+        "gametype_enabled": instances.gametype_enabled(inst),
         "cfg_path": str(instances.cfg_path(inst)),
         "cfg": instances.render_cfg(inst),
         "command": instances.command_preview(inst),

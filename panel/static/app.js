@@ -405,80 +405,147 @@ function tabOverview(el, i) {
   };
 }
 
-function field(f, val) {
+function toggleHtml(attr, key, active) {
+  return `<label class="switch sm" title="Ha kikapcsolod, a panel egyáltalán nem írja bele a cfg-be">
+    <input type="checkbox" ${attr}="${key}" ${active ? 'checked' : ''}><span class="track"></span>
+    <span class="sw-text">${active ? 'aktív' : 'kikapcsolva'}</span></label>`;
+}
+
+function wireToggles() {
+  $$('[data-toggle], [data-gt-toggle], [data-limit-toggle]').forEach(t => {
+    t.onchange = () => {
+      const box = t.closest('.dvar');
+      if (box) box.classList.toggle('off', !t.checked);
+      const txt = t.parentElement.querySelector('.sw-text');
+      if (txt) txt.textContent = t.checked ? 'aktív' : 'kikapcsolva';
+    };
+  });
+}
+
+/* one dvar: name + on/off switch + value + plain-language description */
+function field(f, val, off) {
   const v = val != null ? val : (f.default || '');
   const id = 'dv-' + f.key;
+  const active = !off.has(f.key);
   let input;
   if (f.type === 'bool') {
-    input = `<label class="switch"><input type="checkbox" id="${id}" data-key="${f.key}" data-bool="1"
-      ${String(v) === '1' ? 'checked' : ''}><span class="track"></span></label>`;
+    input = `<select id="${id}" data-key="${f.key}">
+      <option value="1" ${String(v) === '1' ? 'selected' : ''}>Bekapcsolva (1)</option>
+      <option value="0" ${String(v) !== '1' ? 'selected' : ''}>Kikapcsolva (0)</option></select>`;
   } else if (f.type === 'select') {
     input = `<select id="${id}" data-key="${f.key}">${f.options.map(([ov, ol]) =>
-      `<option value="${ov}" ${String(v) === ov ? 'selected' : ''}>${esc(ol)}</option>`).join('')}</select>`;
+      `<option value="${ov}" ${String(v) === ov ? 'selected' : ''}>${esc(ol)} (${ov})</option>`).join('')}</select>`;
   } else {
-    const t = f.type === 'int' ? 'number' : (f.type === 'password' ? 'text' : 'text');
+    const t = f.type === 'int' ? 'number' : 'text';
     input = `<input id="${id}" data-key="${f.key}" type="${t}" value="${esc(v)}">`;
   }
-  return `<div class="field"><label>${esc(f.label)} <span class="mono" style="color:#5f6d85">${f.key}</span></label>
-    ${input}${f.help ? `<span class="help">${esc(f.help)}</span>` : ''}</div>`;
+  return `<div class="dvar ${active ? '' : 'off'}">
+    <div class="dvar-head">
+      <div class="names"><span class="dvar-label">${esc(f.label)}</span><span class="mono dvar-key">${f.key}</span></div>
+      ${toggleHtml('data-toggle', f.key, active)}
+    </div>
+    ${input}
+    <div class="desc">${esc(f.desc || '')}</div>
+    ${f.help ? `<div class="desc tip">${esc(f.help)}</div>` : ''}</div>`;
+}
+
+/* a plain start-parameter block (no dvar toggle, but same look + description) */
+function baseField(label, key, inputHtml, desc) {
+  return `<div class="dvar">
+    <div class="dvar-head"><div class="names"><span class="dvar-label">${esc(label)}</span>
+      ${key ? `<span class="mono dvar-key">${key}</span>` : ''}</div></div>
+    ${inputHtml}<div class="desc">${esc(desc)}</div></div>`;
 }
 
 function tabSettings(el, i) {
+  const off = new Set(i.dvars_off || []);
+  const gtOn = i.gametype_enabled !== false;
+  const limits = i.limits || {};
   const limitFields = i.limit_dvars.map(key => {
     const full = `scr_${i.gametype}_${key}`;
-    return `<div class="field"><label>${esc(key)} <span class="mono" style="color:#5f6d85">${full}</span></label>
-      <input data-limit="${full}" value="${esc((i.limits || {})[full] || '')}" placeholder="pl. 20"></div>`;
+    const on = limits[full] != null && limits[full] !== '';
+    return `<div class="dvar ${on ? '' : 'off'}">
+      <div class="dvar-head"><div class="names"><span class="dvar-label">${esc(key)}</span>
+        <span class="mono dvar-key">${full}</span></div>
+        ${toggleHtml('data-limit-toggle', full, on)}</div>
+      <input data-limit="${full}" value="${esc(limits[full] || '')}" placeholder="pl. 20">
+      <div class="desc">${esc((i.limit_desc || {})[key] || '')}</div></div>`;
   }).join('');
+
   el.innerHTML = `
-    <div class="card" style="margin-bottom:16px"><h3>Alap paraméterek (indítási argumentumok)</h3>
-      <div class="form-grid">
-        <div class="field"><label>Panel-beli név</label><input id="s-name" value="${esc(i.name)}"></div>
-        <div class="field"><label>IP</label><input id="s-ip" value="${esc(i.ip)}"></div>
-        <div class="field"><label>Port</label><input id="s-port" type="number" value="${i.port}"></div>
-        <div class="field"><label>Max játékos (sv_maxclients)</label><input id="s-slots" type="number" value="${i.maxplayers}"></div>
-        <div class="field"><label>Játékmód (g_gametype)</label>
-          <select id="s-gt">${i.gametypes.map(([v, l]) => `<option value="${v}" ${v === i.gametype ? 'selected' : ''}>${esc(l)} (${v})</option>`).join('')}</select></div>
-        <div class="field"><label>Induló map</label>
-          <select id="s-map">${i.maps.map(m => `<option ${m.map === i.map ? 'selected' : ''}>${m.map}${m.source === 'custom' ? ' (custom)' : ''}</option>`).join('')}</select></div>
-        <div class="field"><label>Mod (fs_game)</label>
-          <input id="s-mod" list="modlist" value="${esc(i.mod || '')}" placeholder="(alap)">
-          <datalist id="modlist">${i.mods.map(m => `<option>${m}</option>`).join('')}</datalist></div>
-        <div class="field"><label>Extra indítási paraméterek</label>
-          <input id="s-extra" value="${esc(i.extra_params || '')}" placeholder="+set sv_cheats 0"></div>
+    <div class="card" style="margin-bottom:16px"><h3>Indítási paraméterek</h3>
+      <div class="help" style="margin-bottom:14px">Ezek a szerver parancssorába kerülnek
+        (<span class="mono">+set ...</span>), nem a cfg-be.</div>
+      <div class="dvar-grid">
+        ${baseField('Panel-beli név', '', `<input id="s-name" value="${esc(i.name)}">`,
+    'Csak a panelen belüli megnevezés. A játékosok a lenti sv_hostname értéket látják.')}
+        ${baseField('IP cím', 'net_ip', `<input id="s-ip" value="${esc(i.ip)}">`,
+      'Melyik hálózati címen figyeljen a szerver. 0.0.0.0 = az összes elérhető cím.')}
+        ${baseField('Port', 'net_port', `<input id="s-port" type="number" value="${i.port}">`,
+        'A szerver UDP portja. Több szerver esetén mindegyiknek más port kell (28960, 28961 ...).')}
+        ${baseField('Max játékos', 'sv_maxclients', `<input id="s-slots" type="number" value="${i.maxplayers}">`,
+          'Hány játékos fér fel egyszerre a szerverre.')}
+        <div class="dvar ${gtOn ? '' : 'off'}">
+          <div class="dvar-head"><div class="names"><span class="dvar-label">Játékmód</span>
+            <span class="mono dvar-key">g_gametype</span></div>
+            ${toggleHtml('data-gt-toggle', 'g_gametype', gtOn)}</div>
+          <select id="s-gt">${i.gametypes.map(([v, l]) =>
+            `<option value="${v}" ${v === i.gametype ? 'selected' : ''}>${esc(l)} (${v})</option>`).join('')}</select>
+          <div class="desc">${esc(i.gametype_desc || '')}</div></div>
+        ${baseField('Induló map', '+map', `<select id="s-map">${i.maps.map(m =>
+            `<option ${m.map === i.map ? 'selected' : ''}>${m.map}${m.source === 'custom' ? ' (custom)' : ''}</option>`).join('')}</select>`,
+    'Ezzel a mappal indul a szerver. Ha van map rotáció, a panel helyette a rotációt indítja (+map_rotate).')}
+        ${baseField('Mod', 'fs_game', `<input id="s-mod" list="modlist" value="${esc(i.mod || '')}" placeholder="(alap)">
+          <datalist id="modlist">${i.mods.map(m => `<option>${m}</option>`).join('')}</datalist>`,
+      'Mod könyvtár neve (pl. mods/mymod). Üresen hagyva az alap játék fut.')}
+        ${baseField('Extra indítási paraméterek', '', `<input id="s-extra" value="${esc(i.extra_params || '')}" placeholder="+set sv_cheats 0">`,
+        'Bármilyen további parancssori kapcsoló, szóközzel elválasztva.')}
       </div>
-      <div class="inline" style="gap:24px">
-        <label class="switch"><input type="checkbox" id="s-autostart" ${i.autostart ? 'checked' : ''}><span class="track"></span><span>Autostart</span></label>
-        <label class="switch"><input type="checkbox" id="s-autorestart" ${i.autorestart ? 'checked' : ''}><span class="track"></span><span>Automatikus újraindítás összeomlás után</span></label>
+      <div class="inline" style="gap:24px;margin-top:6px">
+        <label class="switch"><input type="checkbox" id="s-autostart" ${i.autostart ? 'checked' : ''}><span class="track"></span>
+          <span>Induljon a panel indulásakor</span></label>
+        <label class="switch"><input type="checkbox" id="s-autorestart" ${i.autorestart ? 'checked' : ''}><span class="track"></span>
+          <span>Automatikus újraindítás összeomlás után</span></label>
       </div>
     </div>
     <div class="card" style="margin-bottom:16px"><h3>Játékmód limitek (${esc(i.gametype)})</h3>
-      <div class="form-grid">${limitFields}</div>
-      <div class="help">Minden játékmódhoz külön tárolódik, pl. <span class="mono">scr_sd_roundlimit</span>.</div></div>
+      <div class="help" style="margin-bottom:14px">Minden játékmódhoz külön tárolódnak,
+        ezért a mód váltásakor más mezők jelennek meg.</div>
+      <div class="dvar-grid">${limitFields}</div></div>
     ${i.dvar_groups.map(g => `<div class="card" style="margin-bottom:16px"><h3>${esc(g.title)}</h3>
-      <div class="form-grid">${g.fields.map(f => field(f, (i.dvars || {})[f.key])).join('')}</div></div>`).join('')}
+      <div class="dvar-grid">${g.fields.map(f => field(f, (i.dvars || {})[f.key], off)).join('')}</div></div>`).join('')}
     <div class="card" style="margin-bottom:16px"><h3>Egyéni dvar-ok / cfg sorok</h3>
       <div class="field"><label>Ezek változtatás nélkül a cfg végére kerülnek</label>
-        <textarea id="s-extracfg" rows="6" placeholder='set sv_fps "20"&#10;set scr_sd_bombtimer "30"'>${esc(i.extra_cfg || '')}</textarea></div></div>
+        <textarea id="s-extracfg" rows="6" placeholder='set sv_fps "20"&#10;set scr_sd_bombtimer "30"'>${esc(i.extra_cfg || '')}</textarea>
+        <span class="help">Ide jöhet minden, aminek nincs saját mezője a fenti listákban.</span></div></div>
     <div class="btn-row" style="position:sticky;bottom:12px">
       <button class="btn primary" id="save">Mentés és cfg írása</button>
       <button class="btn" id="saverestart">Mentés + újraindítás</button>
     </div>`;
+  wireToggles();
+
   const collect = () => {
     const dvars = {};
-    $$('[data-key]').forEach(inp => {
-      dvars[inp.dataset.key] = inp.dataset.bool ? (inp.checked ? '1' : '0') : inp.value;
-    });
-    const limits = Object.assign({}, i.limits || {});
+    $$('[data-key]').forEach(inp => { dvars[inp.dataset.key] = inp.value; });
+    const dvars_off = [];
+    $$('[data-toggle]').forEach(t => { if (!t.checked) dvars_off.push(t.dataset.toggle); });
+    const newLimits = {};
     $$('[data-limit]').forEach(inp => {
-      if (inp.value === '') delete limits[inp.dataset.limit];
-      else limits[inp.dataset.limit] = inp.value;
+      const key = inp.dataset.limit;
+      const tgl = document.querySelector(`[data-limit-toggle="${key}"]`);
+      if (tgl && tgl.checked && inp.value !== '') newLimits[key] = inp.value;
+    });
+    Object.keys(limits).forEach(k => {
+      if (!(k in newLimits) && !document.querySelector(`[data-limit="${k}"]`)) newLimits[k] = limits[k];
     });
     return {
       name: $('#s-name').value, ip: $('#s-ip').value, port: +$('#s-port').value,
-      maxplayers: +$('#s-slots').value, gametype: $('#s-gt').value, map: $('#s-map').value,
+      maxplayers: +$('#s-slots').value, gametype: $('#s-gt').value,
+      gametype_enabled: $('[data-gt-toggle]').checked,
+      map: $('#s-map').value.replace(' (custom)', ''),
       mod: $('#s-mod').value, extra_params: $('#s-extra').value,
       autostart: $('#s-autostart').checked, autorestart: $('#s-autorestart').checked,
-      dvars, limits, extra_cfg: $('#s-extracfg').value,
+      dvars, dvars_off, limits: newLimits, extra_cfg: $('#s-extracfg').value,
     };
   };
   const save = async (restart) => {

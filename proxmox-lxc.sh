@@ -50,11 +50,19 @@ command -v pct >/dev/null || { echo "Ez a script a Proxmox HOST-on fut (pct nem 
 
 # A template-ek verziója folyamatosan változik, ezért nem drótozzuk be:
 # a pveam katalógusból választjuk a legfrissebb Debian 13/12 standard image-et.
+# a pveam available oszlopsorrendje verziónként eltér (néhol az utolsó mező az
+# architektúra), ezért nem oszlop szerint, hanem a fájlnév mintája alapján szedjük ki
+list_available_templates() {
+  pveam available --section system 2>/dev/null \
+    | tr -s ' \t' '\n\n' | grep -E '\.tar\.(zst|gz|xz)$' || true
+}
+
 pick_template() {
   local avail pat found
-  avail="$(pveam available --section system 2>/dev/null | awk '{print $NF}' || true)"
+  avail="$(list_available_templates)"
   for pat in '^debian-13-standard_.*_amd64\.tar\.(zst|gz|xz)$' \
-             '^debian-12-standard_.*_amd64\.tar\.(zst|gz|xz)$'; do
+             '^debian-12-standard_.*_amd64\.tar\.(zst|gz|xz)$' \
+             '^debian-[0-9]+-standard_.*_amd64\.tar\.(zst|gz|xz)$'; do
     found="$(grep -E "$pat" <<<"$avail" | sort -V | tail -n 1)"
     [[ -n "$found" ]] && { printf '%s' "$found"; return 0; }
   done
@@ -67,7 +75,7 @@ pveam update >/dev/null 2>&1 || echo "   (figyelem: a pveam update nem futott le
 if [[ -z "$TEMPLATE" ]]; then
   if ! TEMPLATE="$(pick_template)"; then
     echo "Nem találtam Debian standard template-et. Elérhető rendszer-template-ek:" >&2
-    pveam available --section system | awk '{print "   " $NF}' >&2
+    list_available_templates | sed 's/^/   /' >&2
     echo "Adj meg egyet kézzel: --template <fájlnév>" >&2
     exit 1
   fi

@@ -80,6 +80,22 @@ bash /opt/codpanel/app/reset-password.sh admin UjJelszo123
 pct exec 150 -- bash /opt/codpanel/app/reset-password.sh
 ```
 
+## Frissítés
+
+Ugyanaz a parancs, mint a telepítés — az adatok (szerverek, mapok, admin jelszó)
+megmaradnak, a service pedig újraindul az új kóddal:
+
+```bash
+# a konténerben
+rm -rf /tmp/cp && git clone --depth 1 https://github.com/miatoszs/cod-panel /tmp/cp && bash /tmp/cp/install.sh
+
+# vagy a Proxmox hostról
+pct exec 150 -- bash -lc 'rm -rf /tmp/cp && git clone -q --depth 1 https://github.com/miatoszs/cod-panel /tmp/cp && bash /tmp/cp/install.sh'
+```
+
+A böngésződnek nem kell cache-t ürítened: a panel verziószámmal hivatkozik a
+saját JS/CSS fájljaira, így frissítés után automatikusan az újat tölti be.
+
 ## Használat
 
 1. **Játékfájlok** fül → a kívánt COD verziónál *Szerverfájlok telepítése*

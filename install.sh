@@ -99,7 +99,9 @@ sed -e "s|/opt/codpanel|$PREFIX|g" \
     -e "s|CODPANEL_PORT=8080|CODPANEL_PORT=$PANEL_PORT|" \
     "$SRC_DIR/systemd/codpanel.service" > /etc/systemd/system/codpanel.service
 systemctl daemon-reload
-systemctl enable --now codpanel.service
+systemctl enable codpanel.service
+# restart (nem csak start): így az install.sh újrafuttatása frissítésként is működik
+systemctl restart codpanel.service
 sleep 2
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__, auth, config, db, games, installer, instances, maps, rcon, runner
@@ -448,9 +448,23 @@ STATIC = config.PANEL_DIR / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
 
+def asset_version() -> str:
+    """Cache-busting címke: panel verzió + a statikus fájlok módosítási ideje.
+
+    Enélkül a böngésző frissítés után is a régi app.js-t futtatná.
+    """
+    try:
+        newest = max((STATIC / f).stat().st_mtime for f in ("app.js", "style.css"))
+        return f"{__version__}-{int(newest)}"
+    except OSError:
+        return __version__
+
+
 @app.get("/")
-async def index() -> FileResponse:
-    return FileResponse(STATIC / "index.html")
+async def index() -> HTMLResponse:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    html = html.replace("__ASSET_V__", asset_version())
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/favicon.ico")

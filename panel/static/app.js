@@ -68,6 +68,22 @@ function stateBadge(st) {
   if (st.state === 'stopping') return '<span class="badge info"><i class="dot"></i>leáll</span>';
   return '<span class="badge off"><i class="dot"></i>leállítva</span>';
 }
+/* Automatikus frissítés: MINDIG csak egy élő időzítő lehet. (Korábban az
+   időzítőből hívott nézet új setInterval-t indított a régi törlése nélkül,
+   így a futó időzítők száma 1.5 másodpercenként megduplázódott.) */
+function stopPoll() {
+  if (S.timer) { clearInterval(S.timer); S.timer = null; }
+}
+
+function startPoll(ms, view, fn) {
+  stopPoll();
+  S.timer = setInterval(() => {
+    if (S.view !== view || !S.user) return stopPoll();
+    if (document.hidden) return;          // háttérben lévő fülön ne dolgozzunk
+    fn();
+  }, ms);
+}
+
 function modal(title, bodyHtml, footHtml) {
   $('#modal').innerHTML = `<div class="modal-bg"><div class="modal">
     <header><h2>${esc(title)}</h2><div class="spacer"></div>
@@ -102,7 +118,7 @@ const go = path => { location.hash = '#/' + path; };
 /* ---------------- render ---------------- */
 async function render() {
   if (S.ws) { S.ws.close(); S.ws = null; }
-  if (S.timer) { clearInterval(S.timer); S.timer = null; }
+  stopPoll();
   if (!S.user) return renderLogin();
 
   $('#root').innerHTML = `<div id="app">${sidebar()}<main id="main"><div class="login-wrap"><span class="loading"></span></div></main></div>`;
@@ -196,7 +212,7 @@ async function viewDashboard() {
     </div>`;
   wireServerCards();
   $('#new').onclick = newServerModal;
-  S.timer = setInterval(() => { if (S.view === 'dashboard') viewDashboard().catch(() => {}); }, 6000);
+  startPoll(6000, 'dashboard', () => viewDashboard().catch(() => {}));
 }
 
 function srvCard(i) {
@@ -254,7 +270,7 @@ async function viewServers() {
          <p>Kattints az „Új szerver” gombra: válassz játékot, módot, mapot — a panel elintézi a többit.</p></div>`}`;
   wireServerCards();
   $('#new').onclick = newServerModal;
-  S.timer = setInterval(() => { if (S.view === 'servers') viewServers().catch(() => {}); }, 7000);
+  startPoll(7000, 'servers', () => viewServers().catch(() => {}));
 }
 
 async function newServerModal() {
@@ -714,7 +730,9 @@ async function viewGames() {
     try { await DEL(`/api/games/${b.dataset.rm}/install`); toast('Törölve.', 'ok'); viewGames(); } catch (e) { fail(e); }
   });
   if (games.some(g => ['downloading', 'verifying', 'extracting'].includes(g.status))) {
-    S.timer = setInterval(() => { if (S.view === 'games') viewGames().catch(() => {}); }, 1500);
+    startPoll(1500, 'games', () => viewGames().catch(() => {}));
+  } else {
+    stopPoll();
   }
 }
 

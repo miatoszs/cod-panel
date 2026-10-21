@@ -1,0 +1,27 @@
+[Unit]
+Description=COD Panel - Call of Duty game server web admin
+Documentation=https://github.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=codpanel
+Group=codpanel
+WorkingDirectory=/opt/codpanel/app
+Environment=CODPANEL_DATA=/opt/codpanel/data
+Environment=CODPANEL_HOST=0.0.0.0
+Environment=CODPANEL_PORT=8080
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/codpanel/venv/bin/python -m panel
+Restart=always
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=30
+LimitNOFILE=16384
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/codpanel
+
+[Install]
+WantedBy=multi-user.target

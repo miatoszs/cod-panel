@@ -220,7 +220,20 @@ Az MCP szerver HTTP-n beszél a panellel, ezért futhat a konténerben vagy a sa
 }
 ```
 
-Claude Code-ban egy paranccsal:
+A saját gépeden egy paranccsal beállítható (a tokent rejtve kéri be, és
+ellenőrzi a panel elérhetőségét is):
+
+```bash
+git clone https://github.com/miatoszs/cod-panel ~/cod-panel
+bash ~/cod-panel/setup-mcp.sh --url http://<panel-ip>:8080
+```
+
+A script létrehozza a venv-et, felteszi az MCP SDK-t, próbát futtat, majd beírja a
+Claude kliens konfigjába (a meglévő MCP szerverek megmaradnak, és biztonsági másolat
+készül). `--target project` a projekt `.mcp.json`-ját írja, `--target print` csak kiírja
+a blokkot.
+
+Claude Code CLI-ben egy paranccsal:
 
 ```bash
 claude mcp add codpanel --env PYTHONPATH=/opt/codpanel/app \

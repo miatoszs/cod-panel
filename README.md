@@ -18,6 +18,7 @@ indítási paraméterek, de **CLI helyett böngészőből** kezelhetően. Proxmo
 | **Dvar-onkénti be/ki kapcsoló** | minden beállítás külön kikapcsolható (akkor ki sem kerül a cfg-be), és mindegyik alatt ott a magyar nyelvű magyarázat, hogy mit csinál |
 | **Map rotáció szerkesztő** | sorrend, játékmód maponként, `sv_mapRotation` generálás |
 | **Élő konzol** | WebSocket, közvetlen stdin + RCON, játékoslista, kick, azonnali map váltás |
+| **AI vezérlés (MCP)** | MCP szerver 19 eszközzel: map váltás, szerver indítás/létrehozás, rotáció, konzol a hibakereséshez |
 | **Felügyelet** | automatikus indítás boot-kor, automatikus újraindítás összeomlás után, RAM/uptime/játékosszám |
 
 A panel ugyanazokat a binárisokat és indítási paramétereket használja, mint a LinuxGSM
@@ -186,6 +187,61 @@ A panel ezt magától kezeli: telepítéskor (és a Játékfájlok oldalon egy g
 kiszedi a könyvtárat a Debian archívumának `libstdc++5:i386` csomagjából
 (SHA256-tal ellenőrizve), és a saját `data/lib32` könyvtárába teszi. A szerverek
 `LD_LIBRARY_PATH`-ába ez bekerül, a rendszerhez tehát nem kell hozzányúlni.
+
+## AI vezérlés (MCP)
+
+A panelhez tartozik egy **MCP szerver**, amivel AI kliensből (Claude Code, Claude Desktop stb.)
+lehet vezérelni a szervereket: „váltsd a cod2 szervert Toujane-ra", „hozz létre egy új
+Search & Destroy szervert", „miért nem indul el a szerver?".
+
+### 1. Token készítése
+
+A panelen: **Beállítások → AI vezérlés → Token készítése**. A token csak egyszer látható,
+és a panel ki is írja hozzá a kész beállítás-blokkot.
+
+### 2. A kliens beállítása
+
+Az MCP szerver HTTP-n beszél a panellel, ezért futhat a konténerben vagy a saját gépeden is
+(ilyenkor a `CODPANEL_URL` a konténer címe legyen).
+
+```json
+{
+  "mcpServers": {
+    "codpanel": {
+      "command": "/opt/codpanel/venv/bin/python",
+      "args": ["-m", "panel.mcp_server"],
+      "env": {
+        "PYTHONPATH": "/opt/codpanel/app",
+        "CODPANEL_URL": "http://10.0.0.50:8080",
+        "CODPANEL_TOKEN": "codp_..."
+      }
+    }
+  }
+}
+```
+
+Claude Code-ban egy paranccsal:
+
+```bash
+claude mcp add codpanel --env PYTHONPATH=/opt/codpanel/app \
+  --env CODPANEL_URL=http://10.0.0.50:8080 --env CODPANEL_TOKEN=codp_... \
+  -- /opt/codpanel/venv/bin/python -m panel.mcp_server
+```
+
+Hálózati (stdio helyett HTTP) módhoz: `CODPANEL_MCP_TRANSPORT=streamable-http`,
+`CODPANEL_MCP_HOST=0.0.0.0`, `CODPANEL_MCP_PORT=8765`.
+
+### Eszközök
+
+| Terület | Eszközök |
+|---|---|
+| Áttekintés, hibakeresés | `list_servers`, `server_details`, `console`, `system_status`, `panel_events` |
+| Vezérlés | `start_server`, `stop_server`, `restart_server`, `change_map`, `send_command` |
+| Beállítás | `create_server`, `update_server`, `set_rotation`, `delete_server` |
+| Tartalom | `list_games`, `list_maps`, `install_game`, `install_custom_map`, `install_missing_libs` |
+
+A `change_map` élőben vált (a cfg nem módosul), az `update_server` tartósan ír a cfg-be.
+A `delete_server` csak `confirm=true`-val fut le, hogy az AI ne töröljön véletlenül.
 
 ## Portok
 

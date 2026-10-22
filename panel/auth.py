@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import time
 
 from . import config, db
@@ -77,3 +78,44 @@ def read_token(token: str | None) -> str | None:
     if data.get("exp", 0) < time.time():
         return None
     return data.get("u")
+
+
+# --- API token (gépi hozzáférés, pl. az MCP szerver számára) -------------------
+TOKEN_PREFIX = "codp_"
+_TOKEN_HASH = "api_token_hash"
+_TOKEN_HINT = "api_token_hint"
+_TOKEN_CREATED = "api_token_created"
+
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_api_token() -> str:
+    """Új tokent készít (a régi azonnal érvénytelen). Csak most látható egyszer."""
+    token = TOKEN_PREFIX + secrets.token_hex(24)
+    db.set_setting(_TOKEN_HASH, _token_hash(token))
+    db.set_setting(_TOKEN_HINT, token[-6:])
+    db.set_setting(_TOKEN_CREATED, str(int(time.time())))
+    return token
+
+
+def check_api_token(token: str | None) -> bool:
+    stored = db.get_setting(_TOKEN_HASH)
+    if not token or not stored:
+        return False
+    return hmac.compare_digest(_token_hash(token), stored)
+
+
+def revoke_api_token() -> None:
+    for key in (_TOKEN_HASH, _TOKEN_HINT, _TOKEN_CREATED):
+        db.set_setting(key, "")
+
+
+def api_token_info() -> dict[str, object]:
+    created = db.get_setting(_TOKEN_CREATED) or ""
+    return {
+        "exists": bool(db.get_setting(_TOKEN_HASH)),
+        "hint": db.get_setting(_TOKEN_HINT) or "",
+        "created": int(created) if created.isdigit() else None,
+    }

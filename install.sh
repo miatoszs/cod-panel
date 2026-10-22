@@ -66,6 +66,7 @@ mkdir -p "$PREFIX/app" "$PREFIX/data"
 say "Panel fájlok másolása: $PREFIX/app"
 if [[ "$SRC_DIR" != "$PREFIX/app" ]]; then
   cp -r "$SRC_DIR/panel" "$SRC_DIR/requirements.txt" "$PREFIX/app/"
+  [[ -f "$SRC_DIR/requirements-mcp.txt" ]] && cp "$SRC_DIR/requirements-mcp.txt" "$PREFIX/app/"
   [[ -f "$SRC_DIR/README.md" ]] && cp "$SRC_DIR/README.md" "$PREFIX/app/"
   [[ -f "$SRC_DIR/reset-password.sh" ]] && cp "$SRC_DIR/reset-password.sh" "$PREFIX/app/"
 fi
@@ -74,6 +75,11 @@ say "Python virtualenv + függőségek"
 python3 -m venv "$PREFIX/venv"
 "$PREFIX/venv/bin/pip" install -q --upgrade pip
 "$PREFIX/venv/bin/pip" install -q -r "$PREFIX/app/requirements.txt"
+# MCP szerver (AI vezérlés) - nem kötelező, a panel enélkül is megy
+if [[ -f "$PREFIX/app/requirements-mcp.txt" ]]; then
+  "$PREFIX/venv/bin/pip" install -q -r "$PREFIX/app/requirements-mcp.txt" \
+    || echo "   (az MCP SDK nem települt - az AI vezérlés enélkül nem megy)"
+fi
 
 if [[ -z "$ADMIN_PASS" ]]; then
   ADMIN_PASS="$(rand_pw 14)"

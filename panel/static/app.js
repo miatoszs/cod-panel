@@ -998,8 +998,23 @@ async function viewLog() {
 }
 
 async function viewSettings() {
-  const sys = await GET('/api/system');
+  const [sys, tok] = await Promise.all([GET('/api/system'), GET('/api/token')]);
   $('#main').innerHTML = `<div class="topbar"><h1>Beállítások</h1></div>
+    <div class="card" style="margin-bottom:16px"><h3>AI vezérlés (MCP)</h3>
+      <p style="color:var(--muted);font-size:13.5px;margin-top:0">
+        A panel MCP szerveren keresztül vezérelhető AI-ból (map váltás, szerver indítás,
+        új szerver, konzol a hibakereséshez). Ehhez kell egy API token.</p>
+      <div class="kv" style="margin-bottom:14px">
+        <span class="k">Token</span><span>${tok.exists
+      ? `<span class="badge on">aktív</span> <span class="mono">…${esc(tok.hint)}</span>`
+      : '<span class="badge off">nincs</span>'}</span>
+        <span class="k">Létrehozva</span><span>${tok.created ? new Date(tok.created * 1000).toLocaleString('hu-HU') : '-'}</span>
+      </div>
+      <div id="tokenbox"></div>
+      <div class="btn-row">
+        <button class="btn primary" id="newtoken">${tok.exists ? 'Új token (a régi érvénytelen lesz)' : 'Token készítése'}</button>
+        ${tok.exists ? '<button class="btn red" id="revoke">Visszavonás</button>' : ''}
+      </div></div>
     <div class="grid c2">
       <div class="card"><h3>Jelszó módosítása</h3>
         <div class="field"><label>Jelenlegi jelszó</label><input type="password" id="old"></div>
@@ -1014,6 +1029,37 @@ async function viewSettings() {
         <span class="k">32-bit libek</span><span>${sys.lib32 ? '<span class="badge on">rendben</span>' : '<span class="badge err">hiányzik</span>'}</span>
         <span class="k">Szerverek</span><span>${sys.running} fut / ${sys.instances}</span>
       </div></div></div>`;
+  $('#newtoken').onclick = async () => {
+    if (!confirm('Új token készítése? A korábbi azonnal érvénytelen lesz.')) return;
+    try {
+      const r = await POST('/api/token');
+      const base = location.origin;
+      $('#tokenbox').innerHTML = `<div class="card" style="background:#0e131c;margin-bottom:14px">
+        <b style="color:var(--accent-2)">Ez a token csak most látható — másold ki!</b>
+        <div class="field" style="margin-top:10px"><input id="tokval" readonly value="${esc(r.token)}"></div>
+        <div class="field"><label>Claude Code / Claude Desktop beállítás</label>
+          <textarea rows="12" readonly>${esc(JSON.stringify({
+        mcpServers: {
+          codpanel: {
+            command: '/opt/codpanel/venv/bin/python',
+            args: ['-m', 'panel.mcp_server'],
+            env: { PYTHONPATH: '/opt/codpanel/app', CODPANEL_URL: base, CODPANEL_TOKEN: r.token },
+          },
+        },
+      }, null, 2))}</textarea></div>
+        <button class="btn sm" id="copytok">Token másolása</button></div>`;
+      $('#copytok').onclick = () => {
+        const el = $('#tokval'); el.select();
+        navigator.clipboard?.writeText(el.value).then(() => toast('Másolva.', 'ok'),
+          () => toast('Jelöld ki és másold kézzel.', 'err'));
+      };
+      toast('Token elkészült.', 'ok');
+    } catch (e) { fail(e); }
+  };
+  if ($('#revoke')) $('#revoke').onclick = async () => {
+    if (!confirm('Visszavonod a tokent? Az MCP kapcsolat megszűnik.')) return;
+    try { await DEL('/api/token'); toast('Visszavonva.', 'ok'); viewSettings(); } catch (e) { fail(e); }
+  };
   $('#pw').onclick = async () => {
     try {
       await POST('/api/password', { old: $('#old').value, new: $('#new').value });

@@ -41,7 +41,12 @@ async def require_login(request: Request, call_next):
     if path.startswith("/api/") and path not in OPEN_PATHS:
         user = auth.read_token(request.cookies.get(config.SESSION_COOKIE))
         if not user:
-            return JSONResponse({"detail": "Bejelentkezés szükséges."}, status_code=401)
+            # gépi hozzáférés: Authorization: Bearer <api token> (MCP szerver, scriptek)
+            header = request.headers.get("authorization", "")
+            if header.lower().startswith("bearer ") and auth.check_api_token(header[7:].strip()):
+                user = "api-token"
+            else:
+                return JSONResponse({"detail": "Bejelentkezés szükséges."}, status_code=401)
         request.state.user = user
     return await call_next(request)
 
@@ -123,6 +128,30 @@ async def api_password(request: Request) -> dict[str, Any]:
         raise HTTPException(400, "A régi jelszó nem megfelelő.")
     if len(data.get("new") or "") < 8:
         raise HTTPException(400, "A jelszó min. 8 karakter legyen.")
+    return {"ok": True}
+
+
+@app.get("/api/token")
+async def api_token_status() -> dict[str, Any]:
+    return auth.api_token_info()
+
+
+@app.post("/api/token")
+async def api_token_create(request: Request) -> dict[str, Any]:
+    """Új API tokent készít - a válaszban szerepel egyszer, utána nem kérhető le."""
+    if request.state.user == "api-token":
+        raise HTTPException(403, "Tokennel nem lehet új tokent készíteni.")
+    token = auth.create_api_token()
+    db.log_event("auth", "Új API token készült", None)
+    return {"token": token, **auth.api_token_info()}
+
+
+@app.delete("/api/token")
+async def api_token_revoke(request: Request) -> dict[str, Any]:
+    if request.state.user == "api-token":
+        raise HTTPException(403, "Tokennel nem lehet tokent visszavonni.")
+    auth.revoke_api_token()
+    db.log_event("auth", "API token visszavonva", None)
     return {"ok": True}
 
 

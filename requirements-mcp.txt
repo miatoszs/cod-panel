@@ -1,0 +1,2 @@
+# Az AI vezérléshez (MCP szerver). A panel működéséhez nem kell.
+mcp>=2,<3

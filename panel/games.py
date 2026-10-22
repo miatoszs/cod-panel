@@ -157,7 +157,7 @@ _GAMEPLAY_MODERN = {
 }
 
 _MODERN_EXTRA = {
-    "title": "CoD4 / WaW extrák",
+    "title": "CoD4 extrák",
     "fields": [
         {"key": "sv_disableClientConsole", "label": "Kliens konzol tiltása", "type": "bool", "default": "0",
          "desc": "Letiltja a játékosok saját konzolját, így nem tudnak parancsokat beírni."},
@@ -172,16 +172,6 @@ _MODERN_EXTRA = {
     ],
 }
 
-_PLUTONIUM = {
-    "title": "Plutonium",
-    "fields": [
-        {"key": "key", "label": "Plutonium szerver kulcs", "type": "password", "default": "",
-         "always_on": True,
-         "desc": "A plutonium.pw fiókodnál igényelhető szerver kulcs. Enélkül a szerver "
-                 "nem hitelesít és nem kerül fel a listára.",
-         "help": "A panel az indítási parancsba teszi (+set key), nem a cfg fájlba."},
-    ],
-}
 
 # A játékmód (g_gametype) külön kezelt mező: indítási paraméter és cfg sor is lesz belőle.
 GAMETYPE_DESC = ("A játékmód, amiben a szerver indul (pl. tdm = csapat deathmatch). "
@@ -311,112 +301,6 @@ GAMES: dict[str, dict[str, Any]] = {
         ],
         "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
     },
-    "codwaw": {
-        "name": "Call of Duty: World at War",
-        "short": "COD:WaW",
-        "lgsm": "codwawserver",
-        "engine": "iw3.0",
-        "executable": "codwaw_lnxded",
-        "moddir": "main",
-        "asset_ext": [".iwd", ".ff"],
-        "archive_url": "https://linuxgsm.download/CallOfDutyWorldAtWar/codwaw-lnxded-1.7-full.tar.xz",
-        "archive_md5": "2c6be1bb66ea631b9b2e7ae6216c6680",
-        "archive_name": "codwaw-lnxded-1.7-full.tar.xz",
-        "default_port": 28960,
-        "default_map": "mp_castle",
-        "default_gametype": "war",
-        "default_maxplayers": 32,
-        "needs_32bit": True,
-        "gametypes": [
-            ["war", "Team Deathmatch (War)"], ["dm", "Free for All"], ["dom", "Domination"],
-            ["koth", "Headquarters"], ["sab", "Sabotage"], ["sd", "Search & Destroy"],
-            ["ctf", "Capture the Flag"], ["twar", "War (frontvonal)"],
-        ],
-        "stock_maps": [
-            "mp_airfield", "mp_asylum", "mp_castle", "mp_cliffside", "mp_courtyard",
-            "mp_dome", "mp_downfall", "mp_hangar", "mp_makin", "mp_makin_day",
-            "mp_outskirts", "mp_roundhouse", "mp_seelow", "mp_shrine", "mp_suburban",
-            "mp_drum", "mp_kneedeep", "mp_bgate", "mp_docks", "mp_kwai", "mp_subway",
-            "mp_nachtfeuer", "mp_vodka", "mp_stalingrad",
-        ],
-        "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
-    },
-    "mw2": {
-        "legacy_libs": [],
-        "name": "Call of Duty: Modern Warfare 2 (IW4x)",
-        "short": "MW2",
-        "lgsm": None,
-        "engine": "iw4.0",
-        "executable": "iw4x.exe",
-        "wine": True,            # Windows bináris, Wine-nal fut
-        "install_mode": "manual",  # a játékfájlokat a felhasználó hozza (saját MW2 + IW4x)
-        "moddir": "userraw",
-        "map_dirs": ["zone/english", "zone", "usermaps"],
-        "asset_ext": [".iwd", ".ff"],
-        "archive_url": "",
-        "archive_md5": "",
-        "archive_name": "",
-        "default_port": 28960,
-        "default_map": "mp_rust",
-        "default_gametype": "war",
-        "default_maxplayers": 18,
-        "needs_32bit": False,
-        # az IW4x Windows bináris: nincs fs_basepath/dedicated 2, a -dedicated kapcsoló
-        # indítja fejnélküli módban, a -stdout pedig a panel konzoljára írat
-        "start_template": ("-dedicated -stdout +set net_port {port} "
-                           "+set sv_maxclients {maxplayers} +set party_enable 0"),
-        "gametypes": [
-            ["war", "Team Deathmatch"], ["dm", "Free for All"], ["dom", "Domination"],
-            ["dd", "Demolition"], ["sab", "Sabotage"], ["sd", "Search & Destroy"],
-            ["koth", "Headquarters"], ["ctf", "Capture the Flag"],
-            ["oneflag", "One Flag CTF"], ["gtnw", "Global Thermonuclear War"],
-        ],
-        "stock_maps": [
-            "mp_afghan", "mp_boneyard", "mp_brecourt", "mp_checkpoint", "mp_derail",
-            "mp_estate", "mp_favela", "mp_highrise", "mp_invasion", "mp_nightshift",
-            "mp_quarry", "mp_rundown", "mp_rust", "mp_subbase", "mp_terminal",
-            "mp_underpass", "mp_complex", "mp_compact", "mp_storm", "mp_abandon",
-            "mp_fuel2", "mp_strike", "mp_trailerpark", "mp_vacant", "mp_crash",
-            "mp_overgrown",
-        ],
-        "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
-    },
-    "t4mp": {
-        "legacy_libs": [],
-        "name": "Call of Duty: World at War (Plutonium)",
-        "short": "WaW/Pluto",
-        "lgsm": None,
-        "engine": "iw3.0",
-        "platform": "plutonium",     # a Plutonium bootstrapper indítja, Wine alatt
-        "pluto_mode": "t4mp",
-        "executable": "bin/plutonium-bootstrapper-win32.exe",
-        "wine": True,
-        "install_mode": "manual",    # a játékfájlokat a felhasználó adja
-        "moddir": "main",
-        "asset_ext": [".iwd", ".ff"],
-        "map_dirs": ["usermaps"],
-        "archive_url": "",
-        "archive_md5": "",
-        "archive_name": "",
-        "default_port": 28960,
-        "default_map": "mp_castle",
-        "default_gametype": "war",
-        "default_maxplayers": 18,
-        "needs_32bit": False,
-        "gametypes": [
-            ["war", "Team Deathmatch (War)"], ["dm", "Free for All"], ["dom", "Domination"],
-            ["koth", "Headquarters"], ["sab", "Sabotage"], ["sd", "Search & Destroy"],
-            ["ctf", "Capture the Flag"], ["twar", "War (frontvonal)"],
-        ],
-        "stock_maps": [
-            "mp_airfield", "mp_asylum", "mp_castle", "mp_cliffside", "mp_courtyard",
-            "mp_dome", "mp_downfall", "mp_hangar", "mp_makin", "mp_makin_day",
-            "mp_outskirts", "mp_roundhouse", "mp_seelow", "mp_shrine", "mp_suburban",
-            "mp_drum", "mp_kneedeep", "mp_bgate", "mp_docks", "mp_kwai", "mp_subway",
-            "mp_nachtfeuer", "mp_vodka", "mp_stalingrad",
-        ],
-        "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
-    },
 }
 
 # Start parameter template shared by every supported title (LinuxGSM compatible).
@@ -461,31 +345,7 @@ MAP_NAMES: dict[str, dict[str, str]] = {
         "mp_overgrown": "Overgrown", "mp_pipeline": "Pipeline", "mp_shipment": "Shipment",
         "mp_showdown": "Showdown", "mp_strike": "Strike", "mp_vacant": "Vacant",
     },
-    "codwaw": {
-        "mp_airfield": "Airfield", "mp_asylum": "Asylum", "mp_castle": "Castle",
-        "mp_cliffside": "Cliffside", "mp_courtyard": "Courtyard", "mp_dome": "Dome",
-        "mp_downfall": "Downfall", "mp_hangar": "Hangar", "mp_makin": "Makin",
-        "mp_makin_day": "Makin Day", "mp_outskirts": "Outskirts",
-        "mp_roundhouse": "Roundhouse", "mp_seelow": "Seelow", "mp_suburban": "Upheaval",
-        "mp_drum": "Banzai", "mp_kneedeep": "Knee Deep", "mp_bgate": "Breach",
-        "mp_docks": "Sub Pens", "mp_subway": "Station", "mp_nachtfeuer": "Nightfire",
-        "mp_vodka": "Corrosion",
-    },
-    "mw2": {
-        "mp_afghan": "Afghan", "mp_boneyard": "Scrapyard", "mp_brecourt": "Wasteland",
-        "mp_checkpoint": "Karachi", "mp_derail": "Derail", "mp_estate": "Estate",
-        "mp_favela": "Favela", "mp_highrise": "Highrise", "mp_invasion": "Invasion",
-        "mp_nightshift": "Skidrow", "mp_quarry": "Quarry", "mp_rundown": "Rundown",
-        "mp_rust": "Rust", "mp_subbase": "Sub Base", "mp_terminal": "Terminal",
-        "mp_underpass": "Underpass", "mp_complex": "Bailout", "mp_compact": "Salvage",
-        "mp_storm": "Storm", "mp_abandon": "Carnival", "mp_fuel2": "Fuel",
-        "mp_strike": "Strike", "mp_trailerpark": "Trailer Park", "mp_vacant": "Vacant",
-        "mp_crash": "Crash", "mp_overgrown": "Overgrown",
-    },
 }
-
-
-MAP_NAMES["t4mp"] = dict(MAP_NAMES["codwaw"])
 
 
 def map_label(gid: str, mapname: str) -> str:
@@ -500,14 +360,12 @@ def map_label(gid: str, mapname: str) -> str:
 def dvar_groups(gid: str) -> list[dict[str, Any]]:
     """Form definition for the web UI: every dvar that matters, grouped."""
     g = GAMES[gid]
-    modern = gid in ("cod4", "codwaw")
+    modern = gid == "cod4"
     groups = [_basic(f"^3{g['short']} ^7szerver"),
               _GAMEPLAY_MODERN if modern else _gameplay_ww2(),
               _NETWORK_Q3, _ADMIN]
     if modern:
         groups.append(_MODERN_EXTRA)
-    if g.get("platform") == "plutonium":
-        groups.insert(1, _PLUTONIUM)
     return groups
 
 
@@ -554,8 +412,6 @@ def catalog() -> list[dict[str, Any]]:
             "stock_maps": g["stock_maps"],
             "map_names": {m: map_label(gid, m) for m in g["stock_maps"]},
             "install_mode": g.get("install_mode", "download"),
-            "wine": bool(g.get("wine")),
-            "platform": g.get("platform", "native"),
             "asset_ext": g["asset_ext"],
             "archive_url": g["archive_url"],
         })

@@ -56,7 +56,7 @@ def asset_files(gid: str, mod: str | None = None) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     base = instances.serverfiles_dir(gid)
     search: list[Path] = [_target_dir(gid, mod)]
-    if gid in ("cod4", "codwaw"):
+    if gid == "cod4":
         usermaps = base / "usermaps"
         if usermaps.is_dir():
             search += [d for d in sorted(usermaps.iterdir()) if d.is_dir()]
@@ -87,7 +87,7 @@ def map_dirs(gid: str) -> list[str]:
     g = games.GAMES[gid]
     if g.get("map_dirs"):
         return list(g["map_dirs"])
-    return ["usermaps"] if gid in ("cod4", "codwaw") else []
+    return ["usermaps"] if gid == "cod4" else []
 
 
 def detect_maps(gid: str, mod: str | None = None) -> list[dict[str, Any]]:
@@ -126,7 +126,7 @@ def detect_maps(gid: str, mod: str | None = None) -> list[dict[str, Any]]:
 
 def _place_bare_asset(gid: str, mod: str | None, src: Path, filename: str) -> Path:
     ext = Path(filename).suffix.lower()
-    if gid in ("cod4", "codwaw") and ext in (".ff", ".iwd") and filename.lower().startswith("mp_"):
+    if gid == "cod4" and ext in (".ff", ".iwd") and filename.lower().startswith("mp_"):
         mapname = re.sub(r"(_load|_patch)$", "", Path(filename).stem)
         dest_dir = instances.serverfiles_dir(gid) / "usermaps" / mapname
     else:

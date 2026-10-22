@@ -436,9 +436,6 @@ function tabOverview(el, i) {
   const st = i.status || {};
   const pl = st.playerlist || [];
   el.innerHTML = `${st.missing_lib ? libWarning([st.missing_lib], i.game) : ''}
-    ${st.hint ? `<div class="card" style="border-color:rgba(255,93,93,.45);margin-bottom:18px">
-      <div class="card-head"><h3 style="color:var(--red)">A szerver nem tudott elindulni</h3></div>
-      <p style="margin:0;color:var(--muted);font-size:13.5px">${esc(st.hint)}</p></div>` : ''}
     <div class="grid c2">
     <div class="card"><h3>Állapot</h3><div class="kv">
       <span class="k">Állapot</span><span>${stateBadge(st)}</span>
@@ -592,9 +589,7 @@ function tabSettings(el, i) {
       'Mod könyvtár neve (pl. mods/mymod). Üresen hagyva az alap játék fut.')}
         ${baseField('Extra indítási paraméterek', '', `<input id="s-extra" value="${esc(i.extra_params || '')}" placeholder="+set sv_cheats 0">`,
         'Bármilyen további parancssori kapcsoló, szóközzel elválasztva.')}
-        ${i.platform === 'plutonium' ? baseField('Játékfájlok könyvtára', '',
-      `<input id="s-gamefiles" value="${esc(i.gamefiles || '')}" placeholder="(alapértelmezett: serverfiles/${esc(i.game)})">`,
-      'Ide mutasson a World at War telepítésed. Üresen a játék saját könyvtárát használja; abszolút útvonal is megadható, így egy meglévő telepítés újra felhasználható.') : ''}
+
       </div>
       <div class="inline" style="gap:24px;margin-top:6px">
         <label class="switch"><input type="checkbox" id="s-autostart" ${i.autostart ? 'checked' : ''}><span class="track"></span>
@@ -640,7 +635,6 @@ function tabSettings(el, i) {
       gametype_enabled: $('[data-gt-toggle]').checked,
       map: $('#s-map').dataset.value,
       mod: $('#s-mod').value, extra_params: $('#s-extra').value,
-      ...($('#s-gamefiles') ? { gamefiles: $('#s-gamefiles').value } : {}),
       autostart: $('#s-autostart').checked, autorestart: $('#s-autorestart').checked,
       dvars, dvars_off, limits: newLimits, extra_cfg: $('#s-extracfg').value,
     };
@@ -780,38 +774,6 @@ async function installLibs(btn, gid) {
   } catch (e) { fail(e); if (btn) { btn.disabled = false; btn.textContent = 'Újra'; } }
 }
 
-function plutoBlock(g) {
-  const p = g.plutonium || {};
-  const busy = ['downloading', 'updating'].includes(p.status);
-  return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px">
-    <div class="kv" style="margin-bottom:10px">
-      <span class="k">Plutonium</span><span>${p.installed
-      ? `<span class="badge on">telepítve</span> ${p.size_mb} MB`
-      : '<span class="badge off">nincs telepítve</span>'}</span>
-      <span class="k">wine</span><span>${p.wine
-      ? '<span class="badge on">megvan</span>'
-      : '<span class="badge err">hiányzik — apt install -y wine wine32:i386</span>'}</span>
-      <span class="k">Játékfájlok</span><span>${g.installed
-      ? '<span class="badge on">megvannak</span>'
-      : '<span class="badge off">hiányoznak</span>'}</span>
-    </div>
-    ${busy ? `<div class="bar" style="margin-bottom:8px"><i style="width:${p.percent || 10}%"></i></div>
-      <div class="help">${esc(p.message || '')}</div>` : ''}
-    ${p.status === 'error' ? `<div class="badge err" style="margin-bottom:8px">${esc(p.message)}</div>` : ''}
-    <div class="btn-row">
-      <button class="btn ${p.installed ? '' : 'primary'}" data-pluto="${g.id}" ${busy ? 'disabled' : ''}>
-        ${ICON.download} ${p.installed ? 'Plutonium frissítése' : 'Plutonium telepítése'}</button>
-    </div>
-    <div class="help" style="margin-top:10px">
-      A Plutonium futtatókörnyezetet a panel letölti és frissíti. A <b>játékfájlokat</b>
-      neked kell adni: másold a World at War telepítésedet ide:
-      <div class="mono" style="margin-top:6px">${esc(g.path)}</div>
-      vagy a szerver Beállításainál a <b>Játékfájlok könyvtára</b> mezőben mutass rá egy
-      meglévőre (pl. a sima WaW telepítésedre). Kell még egy
-      <a href="https://plutonium.pw" target="_blank" rel="noopener">plutonium.pw</a>
-      szerver kulcs, amit a szerver Beállításainál adhatsz meg.</div>`;
-}
-
 function libWarning(missing, gid) {
   if (!missing || !missing.length) return '';
   return `<div class="card" style="border-color:rgba(255,93,93,.45);margin-bottom:18px">
@@ -848,23 +810,12 @@ async function viewGames() {
         <div class="help">${esc(g.message)}</div>` : ''}
       ${g.status === 'error' ? `<div class="badge err" style="margin-bottom:8px">${esc(g.message)}</div>` : ''}
       <div class="btn-row">
-        ${g.install_mode === 'manual' ? ''
-      : `<button class="btn ${g.installed ? '' : 'primary'}" data-install="${g.id}" ${busy ? 'disabled' : ''}>
-             ${ICON.download} ${g.installed ? 'Újratelepítés' : 'Szerverfájlok telepítése'}</button>`}
+        <button class="btn ${g.installed ? '' : 'primary'}" data-install="${g.id}" ${busy ? 'disabled' : ''}>
+          ${ICON.download} ${g.installed ? 'Újratelepítés' : 'Szerverfájlok telepítése'}</button>
         <button class="btn sm ghost" data-maps="${g.id}">Mapok</button>
         ${g.installed ? `<button class="btn sm red" data-rm="${g.id}">${ICON.trash}</button>` : ''}
       </div>
-      ${g.platform === 'plutonium' ? plutoBlock(g) : ''}
-      ${g.install_mode === 'manual' && g.platform !== 'plutonium'
-      ? `<div class="help" style="margin-top:10px">
-           Ehhez a játékhoz <b>nincs letölthető szerverfájl</b> — a saját MW2 (Steam) telepítésed
-           és az <a href="https://docs.iw4x.io/hosting/server-hosting/" target="_blank" rel="noopener">IW4x</a>
-           fájljai kellenek. Másold őket ide:
-           <div class="mono" style="margin-top:6px">${esc(g.path)}</div>
-           úgy, hogy a <span class="mono">${esc(g.executable)}</span> a könyvtár gyökerébe kerüljön.
-           Windows bináris, ezért <span class="mono">wine</span> is kell a konténerben
-           (<span class="mono">apt install wine</span>).</div>`
-      : (g.archive_url ? `<div class="help" style="margin-top:8px">Forrás: <span class="mono">${esc(g.archive_url)}</span></div>` : '')}
+      ${g.archive_url ? `<div class="help" style="margin-top:8px">Forrás: <span class="mono">${esc(g.archive_url)}</span></div>` : ''}
     </div>`;
   };
   const allMissing = [...new Set(games.flatMap(g => g.missing_libs || []))];
@@ -881,17 +832,11 @@ async function viewGames() {
     } catch (e) { fail(e); }
   });
   $$('[data-maps]').forEach(b => b.onclick = () => go('maps/' + b.dataset.maps));
-  $$('[data-pluto]').forEach(b => b.onclick = async () => {
-    b.disabled = true; b.innerHTML = '<span class="loading"></span> indul...';
-    try { await POST('/api/plutonium/install', {}); toast('Plutonium telepítés elindult.', 'ok'); viewGames(); }
-    catch (e) { fail(e); viewGames(); }
-  });
   $$('[data-rm]').forEach(b => b.onclick = async () => {
     if (!confirm('Törlöd a játék szerverfájljait? A mapok is törlődnek.')) return;
     try { await DEL(`/api/games/${b.dataset.rm}/install`); toast('Törölve.', 'ok'); viewGames(); } catch (e) { fail(e); }
   });
-  const plutoBusy = games.some(g => ['downloading', 'updating'].includes((g.plutonium || {}).status));
-  if (plutoBusy || games.some(g => ['downloading', 'verifying', 'extracting'].includes(g.status))) {
+  if (games.some(g => ['downloading', 'verifying', 'extracting'].includes(g.status))) {
     startPoll(1500, 'games', () => viewGames().catch(() => {}));
   } else {
     stopPoll();

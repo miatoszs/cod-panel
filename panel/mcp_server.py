@@ -329,25 +329,6 @@ def install_custom_map(game: str, url: str, mod: str | None = None) -> dict[str,
             "new_maps": result.get("maps", [])}
 
 
-@server.tool(description="A Plutonium futtatókörnyezet állapota (telepítve van-e, van-e wine). "
-                         "A Plutonium alapú játékokhoz (pl. World at War T4) kell.")
-def plutonium_status() -> dict[str, Any]:
-    st = _request("GET", "/api/plutonium")
-    return {"installed": st.get("installed"), "wine_available": st.get("wine"),
-            "size_mb": st.get("size_mb"), "files": st.get("files"),
-            "path": st.get("path"), "status": st.get("status"),
-            "message": st.get("message")}
-
-
-@server.tool(description="A Plutonium futtatókörnyezet telepítése vagy frissítése "
-                         "(kb. 480 MB, háttérben fut). A játékfájlokat NEM tölti le, "
-                         "azokat a felhasználónak kell biztosítania.")
-def install_plutonium(force: bool = False) -> dict[str, Any]:
-    st = _request("POST", "/api/plutonium/install", {"force": force})
-    return {"ok": True, "status": st.get("status"), "message": st.get("message"),
-            "note": "A letöltés a háttérben fut, az állapotot a plutonium_status mutatja."}
-
-
 @server.tool(description="A hiányzó 32 bites rendszerkönyvtárak pótlása (libstdc++.so.5). "
                          "Ezt akkor kell futtatni, ha a szerver 127-es kóddal azonnal kilép.")
 def install_missing_libs(game: str | None = None) -> dict[str, Any]:

@@ -3,13 +3,18 @@
 Webes admin felület Call of Duty dedikált szerverekhez — LinuxGSM-kompatibilis binárisok és
 indítási paraméterek, de **CLI helyett böngészőből** kezelhetően. Proxmox LXC konténerre szabva.
 
+Csak olyan címeket tartalmaz, amelyek **CD kulcs nélkül, letölthető szerverfájlokkal** futnak:
+CoD, CoD: United Offensive, CoD2 és CoD4 (CoD4X). A World at War és az MW2 szándékosan nincs
+benne: előbbihez multiplayer kulcs kell (ma már nem szerezhető be), utóbbihoz pedig a saját
+játéktelepítésed és Wine — ezek nem illenek az "egy kattintás és megy" ígérethez.
+
 ![status](https://img.shields.io/badge/python-3.9%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ## Mit tud
 
 | | |
 |---|---|
-| **7 játék** | Call of Duty, CoD: United Offensive, Call of Duty 2, Call of Duty 4 (CoD4X), CoD: World at War (eredeti és Plutonium), Modern Warfare 2 (IW4x) |
+| **4 játék** | Call of Duty, CoD: United Offensive, Call of Duty 2, Call of Duty 4 (CoD4X) — mind kulcs nélkül, letölthető szerverfájlokkal |
 | **Több szerver** | Egy panelből korlátlan számú példány, mindegyiknek saját port, cfg, log, konzol |
 | **Egy kattintásos játékfájl-telepítés** | A LinuxGSM tükrökről, MD5 ellenőrzéssel |
 | **Egy kattintásos custom map** | URL-ről letöltve vagy fájlból feltöltve (.iwd / .pk3 / .ff / .zip), utána azonnal kiválasztható |
@@ -22,7 +27,7 @@ indítási paraméterek, de **CLI helyett böngészőből** kezelhetően. Proxmo
 | **Felügyelet** | automatikus indítás boot-kor, automatikus újraindítás összeomlás után, RAM/uptime/játékosszám |
 
 A panel ugyanazokat a binárisokat és indítási paramétereket használja, mint a LinuxGSM
-`codserver` / `coduoserver` / `cod2server` / `cod4server` / `codwawserver` scriptek,
+`codserver` / `coduoserver` / `cod2server` / `cod4server` scriptek,
 így a meglévő tudás és a community cfg-k változtatás nélkül működnek.
 
 ## Map előnézeti képek
@@ -39,8 +44,7 @@ kétféleképpen segít:
 A map választó innentől egy rácsos, kereshető ablak képekkel — a Beállítások *Induló map*
 mezőjénél, a rotáció szerkesztőben és az azonnali map váltásnál is.
 
-Ha egy maphoz nincs kép (pl. a CoD4/WaW/MW2 egyes textúrái `.ff` fastfile-ban vannak, amit nem
-bontunk ki), a Map kezelőben a kártya sarkában lévő **kép** gombbal tölthetsz fel sajátot vagy
+Ha egy maphoz nincs kép (a CoD4 egyes textúrái `.ff` fastfile-ban vannak, amit nem bontunk ki), a Map kezelőben a kártya sarkában lévő **kép** gombbal tölthetsz fel sajátot vagy
 adhatsz meg kép-URL-t.
 
 ## Telepítés
@@ -78,48 +82,6 @@ A telepítő elintézi:
 - `codpanel` rendszerfelhasználó, Python venv, függőségek,
 - systemd service (`codpanel`), automatikus indítással,
 - admin felhasználó (jelszó generálva, ha nem adod meg).
-
-### World at War Plutoniummal (T4)
-
-Az eredeti WaW szerverhez **multiplayer CD kulcs** kell, ami ma már nem szerezhető be —
-e nélkül a szerver nem hitelesít. Helyette a **Plutonium** platform használható, amihez a
-panel külön játékbejegyzést ad (*Call of Duty: World at War (Plutonium)*).
-
-Három dolog kell hozzá:
-
-1. **Plutonium futtatókörnyezet** — ezt a panel letölti és frissíti egy kattintással
-   (Játékfájlok oldal → *Plutonium telepítése*, kb. 480 MB). Ugyanez a telepítés
-   tartalmazza a T5 (BO1), T6 (BO2) és IW5 (MW3) binárisokat is.
-2. **A saját World at War játékfájljaid** — ezeket nem töltjük le. Vagy a játék
-   könyvtárába másolod őket, vagy a szerver Beállításainál a *Játékfájlok könyvtára*
-   mezőben rámutatsz egy meglévő telepítésre (akár a sima `codwaw` könyvtárra).
-3. **Plutonium szerver kulcs** (plutonium.pw) és **wine** a konténerben
-   (`apt install -y wine wine32:i386`), mert a Plutonium Windows bináris.
-
-A panel a Plutonium hivatalos mintája szerint indít:
-
-```
-wine bin/plutonium-bootstrapper-win32.exe t4mp "<játékfájlok>" -dedicated \
-    +set key <kulcs> +set net_port <port> +exec <id>.cfg +map_rotate
-```
-
-A szerver kulcs az indítási parancsba kerül, nem a cfg fájlba.
-
-### Modern Warfare 2 (IW4x) — eltérő telepítés
-
-Az MW2-höz **nincs hivatalos dedikált szerver** és nincs letölthető szerverfájl-csomag sem:
-az Activision annak idején IWNet-es matchmakinggel adta ki. Dedikált szervert a közösségi
-[IW4x](https://docs.iw4x.io/hosting/server-hosting/) projekttel lehet üzemeltetni, amihez:
-
-1. a **saját, Steames MW2 telepítésed** fájljai kellenek (a Microsoft Store-os változat nem jó),
-2. az IW4x fájljai (`iw4x.dll`, `iw4x-launcher`, `userraw/`, `zone/`), és
-3. mivel ez Windows bináris: **wine** a konténerben (`apt install -y wine wine32:i386`).
-
-A fájlokat ide kell másolni: `<data>/serverfiles/mw2/`, úgy hogy az `iw4x.exe` a gyökerében legyen.
-A panel innentől ugyanúgy kezeli, mint a többit (indítás, konzol, cfg, rotáció, mapok) —
-a szervert `wine iw4x.exe -dedicated -stdout +set net_port ... +exec <id>.cfg` paranccsal indítja,
-a cfg a `userraw/` könyvtárba kerül. A panel kb. 12 GB helyet kér ehhez (az IW4x Shrink
-eszközzel 7-8 GB-ra csökkenthető).
 
 ### C) Fejlesztéshez / kipróbáláshoz (bármilyen Linuxon)
 

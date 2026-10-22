@@ -22,9 +22,6 @@ def state(gid: str) -> dict[str, Any]:
     g = games.GAMES[gid]
     base = instances.serverfiles_dir(gid)
     info = progress.get(gid, {"status": "idle", "percent": 0, "message": ""})
-    if g.get("install_mode") == "manual" and info["status"] == "idle":
-        info = {"status": "manual", "percent": 0,
-                "message": "Saját játékfájlok szükségesek (MW2 + IW4x)."}
     size = 0
     if base.exists():
         size = sum(f.stat().st_size for f in base.rglob("*") if f.is_file())
@@ -106,9 +103,6 @@ def safe_extract(archive: Path, target: Path) -> None:
 def install(gid: str, force: bool = False) -> None:
     """Blocking install; call via install_async."""
     g = games.GAMES[gid]
-    if g.get("install_mode") == "manual":
-        _set(gid, "manual", 0, "Ehhez a játékhoz saját fájlok kellenek (nincs letölthető csomag).")
-        return
     base = instances.serverfiles_dir(gid)
     if instances.game_installed(gid) and not force:
         _set(gid, "done", 100, "Már telepítve.")

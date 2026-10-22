@@ -9,7 +9,7 @@ indítási paraméterek, de **CLI helyett böngészőből** kezelhetően. Proxmo
 
 | | |
 |---|---|
-| **6 játék** | Call of Duty, CoD: United Offensive, Call of Duty 2, Call of Duty 4 (CoD4X), CoD: World at War, Modern Warfare 2 (IW4x) |
+| **7 játék** | Call of Duty, CoD: United Offensive, Call of Duty 2, Call of Duty 4 (CoD4X), CoD: World at War (eredeti és Plutonium), Modern Warfare 2 (IW4x) |
 | **Több szerver** | Egy panelből korlátlan számú példány, mindegyiknek saját port, cfg, log, konzol |
 | **Egy kattintásos játékfájl-telepítés** | A LinuxGSM tükrökről, MD5 ellenőrzéssel |
 | **Egy kattintásos custom map** | URL-ről letöltve vagy fájlból feltöltve (.iwd / .pk3 / .ff / .zip), utána azonnal kiválasztható |
@@ -78,6 +78,32 @@ A telepítő elintézi:
 - `codpanel` rendszerfelhasználó, Python venv, függőségek,
 - systemd service (`codpanel`), automatikus indítással,
 - admin felhasználó (jelszó generálva, ha nem adod meg).
+
+### World at War Plutoniummal (T4)
+
+Az eredeti WaW szerverhez **multiplayer CD kulcs** kell, ami ma már nem szerezhető be —
+e nélkül a szerver nem hitelesít. Helyette a **Plutonium** platform használható, amihez a
+panel külön játékbejegyzést ad (*Call of Duty: World at War (Plutonium)*).
+
+Három dolog kell hozzá:
+
+1. **Plutonium futtatókörnyezet** — ezt a panel letölti és frissíti egy kattintással
+   (Játékfájlok oldal → *Plutonium telepítése*, kb. 480 MB). Ugyanez a telepítés
+   tartalmazza a T5 (BO1), T6 (BO2) és IW5 (MW3) binárisokat is.
+2. **A saját World at War játékfájljaid** — ezeket nem töltjük le. Vagy a játék
+   könyvtárába másolod őket, vagy a szerver Beállításainál a *Játékfájlok könyvtára*
+   mezőben rámutatsz egy meglévő telepítésre (akár a sima `codwaw` könyvtárra).
+3. **Plutonium szerver kulcs** (plutonium.pw) és **wine** a konténerben
+   (`apt install -y wine`), mert a Plutonium Windows bináris.
+
+A panel a Plutonium hivatalos mintája szerint indít:
+
+```
+wine bin/plutonium-bootstrapper-win32.exe t4mp "<játékfájlok>" -dedicated \
+    +set key <kulcs> +set net_port <port> +exec <id>.cfg +map_rotate
+```
+
+A szerver kulcs az indítási parancsba kerül, nem a cfg fájlba.
 
 ### Modern Warfare 2 (IW4x) — eltérő telepítés
 

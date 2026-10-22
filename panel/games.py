@@ -172,6 +172,17 @@ _MODERN_EXTRA = {
     ],
 }
 
+_PLUTONIUM = {
+    "title": "Plutonium",
+    "fields": [
+        {"key": "key", "label": "Plutonium szerver kulcs", "type": "password", "default": "",
+         "always_on": True,
+         "desc": "A plutonium.pw fiókodnál igényelhető szerver kulcs. Enélkül a szerver "
+                 "nem hitelesít és nem kerül fel a listára.",
+         "help": "A panel az indítási parancsba teszi (+set key), nem a cfg fájlba."},
+    ],
+}
+
 # A játékmód (g_gametype) külön kezelt mező: indítási paraméter és cfg sor is lesz belőle.
 GAMETYPE_DESC = ("A játékmód, amiben a szerver indul (pl. tdm = csapat deathmatch). "
                  "Kikapcsolva a panel nem írja elő — a mod vagy a saját cfg dönti el.")
@@ -370,6 +381,42 @@ GAMES: dict[str, dict[str, Any]] = {
         ],
         "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
     },
+    "t4mp": {
+        "legacy_libs": [],
+        "name": "Call of Duty: World at War (Plutonium)",
+        "short": "WaW/Pluto",
+        "lgsm": None,
+        "engine": "iw3.0",
+        "platform": "plutonium",     # a Plutonium bootstrapper indítja, Wine alatt
+        "pluto_mode": "t4mp",
+        "executable": "bin/plutonium-bootstrapper-win32.exe",
+        "wine": True,
+        "install_mode": "manual",    # a játékfájlokat a felhasználó adja
+        "moddir": "main",
+        "asset_ext": [".iwd", ".ff"],
+        "map_dirs": ["usermaps"],
+        "archive_url": "",
+        "archive_md5": "",
+        "archive_name": "",
+        "default_port": 28960,
+        "default_map": "mp_castle",
+        "default_gametype": "war",
+        "default_maxplayers": 18,
+        "needs_32bit": False,
+        "gametypes": [
+            ["war", "Team Deathmatch (War)"], ["dm", "Free for All"], ["dom", "Domination"],
+            ["koth", "Headquarters"], ["sab", "Sabotage"], ["sd", "Search & Destroy"],
+            ["ctf", "Capture the Flag"], ["twar", "War (frontvonal)"],
+        ],
+        "stock_maps": [
+            "mp_airfield", "mp_asylum", "mp_castle", "mp_cliffside", "mp_courtyard",
+            "mp_dome", "mp_downfall", "mp_hangar", "mp_makin", "mp_makin_day",
+            "mp_outskirts", "mp_roundhouse", "mp_seelow", "mp_shrine", "mp_suburban",
+            "mp_drum", "mp_kneedeep", "mp_bgate", "mp_docks", "mp_kwai", "mp_subway",
+            "mp_nachtfeuer", "mp_vodka", "mp_stalingrad",
+        ],
+        "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
+    },
 }
 
 # Start parameter template shared by every supported title (LinuxGSM compatible).
@@ -438,6 +485,9 @@ MAP_NAMES: dict[str, dict[str, str]] = {
 }
 
 
+MAP_NAMES["t4mp"] = dict(MAP_NAMES["codwaw"])
+
+
 def map_label(gid: str, mapname: str) -> str:
     """Emberi név, ha ismerjük; különben a kódnévből csinálunk olvashatót."""
     known = MAP_NAMES.get(gid, {}).get(mapname)
@@ -456,6 +506,8 @@ def dvar_groups(gid: str) -> list[dict[str, Any]]:
               _NETWORK_Q3, _ADMIN]
     if modern:
         groups.append(_MODERN_EXTRA)
+    if g.get("platform") == "plutonium":
+        groups.insert(1, _PLUTONIUM)
     return groups
 
 
@@ -477,7 +529,8 @@ def default_disabled(gid: str) -> list[str]:
     off: list[str] = []
     for group in dvar_groups(gid):
         for f in group["fields"]:
-            if str(f.get("default", "")) == "":
+            # az always_on mezők üresen is bekapcsolva indulnak (pl. a Plutonium kulcs)
+            if str(f.get("default", "")) == "" and not f.get("always_on"):
                 off.append(f["key"])
     return off
 
@@ -502,6 +555,7 @@ def catalog() -> list[dict[str, Any]]:
             "map_names": {m: map_label(gid, m) for m in g["stock_maps"]},
             "install_mode": g.get("install_mode", "download"),
             "wine": bool(g.get("wine")),
+            "platform": g.get("platform", "native"),
             "asset_ext": g["asset_ext"],
             "archive_url": g["archive_url"],
         })

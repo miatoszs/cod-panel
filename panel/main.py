@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 
 from . import (__version__, auth, config, db, games, installer, instances, legacylibs,
-               mapimages, maps, rcon, runner)
+               mapimages, maps, plutonium, rcon, runner)
 
 app = FastAPI(title="COD Panel", version=__version__, docs_url="/api/docs")
 
@@ -166,9 +166,12 @@ def _set_cookie(resp: JSONResponse, token: str) -> None:
 async def api_games() -> list[dict[str, Any]]:
     out = []
     for item in games.catalog():
-        out.append({**item, **installer.state(item["id"]),
-                    "missing_libs": legacylibs.missing_libs(item["id"]),
-                    "legacy_libs": legacylibs.required_libs(item["id"])})
+        state = {**item, **installer.state(item["id"]),
+                 "missing_libs": legacylibs.missing_libs(item["id"]),
+                 "legacy_libs": legacylibs.required_libs(item["id"])}
+        if games.GAMES[item["id"]].get("platform") == "plutonium":
+            state["plutonium"] = plutonium.status()
+        out.append(state)
     return out
 
 
@@ -209,6 +212,21 @@ async def api_game_remove(gid: str) -> dict[str, Any]:
     installer.remove(gid)
     mapimages.reset(gid)
     return installer.state(gid)
+
+
+@app.get("/api/plutonium")
+async def api_plutonium() -> dict[str, Any]:
+    return plutonium.status()
+
+
+@app.post("/api/plutonium/install")
+async def api_plutonium_install(request: Request) -> dict[str, Any]:
+    data = await _body(request)
+    try:
+        plutonium.install_async(bool(data.get("force")))
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return plutonium.status()
 
 
 @app.get("/api/libs")
@@ -374,6 +392,7 @@ async def api_instance(iid: str) -> dict[str, Any]:
         "game_name": games.GAMES[gid]["name"],
         "game_short": games.GAMES[gid]["short"],
         "installed": instances.game_installed(gid),
+        "platform": games.GAMES[gid].get("platform", "native"),
         "gametypes": games.GAMES[gid]["gametypes"],
         "maps": maps.detect_maps(gid, inst.get("mod")),
         "mods": maps.mod_dirs(gid),

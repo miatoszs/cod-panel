@@ -74,7 +74,7 @@ class Runner:
                 self._loop = None
             cmd = instances.build_command(inst)
             instances.write_cfg(inst)
-            cwd = instances.serverfiles_dir(inst["game"])
+            cwd = instances.work_dir(inst)
             env = dict(os.environ, LD_LIBRARY_PATH=legacylibs.ld_library_path(cwd))
             self.manual_stop = False
             self.exit_code = None

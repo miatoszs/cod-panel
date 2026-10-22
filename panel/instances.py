@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from . import config, db, games
+from . import config, db, games, plutonium
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,31}$")
 
@@ -20,7 +20,26 @@ def serverfiles_dir(gid: str) -> Path:
 
 def game_installed(gid: str) -> bool:
     g = games.GAMES[gid]
+    if g.get("platform") == "plutonium":
+        # kell a Plutonium futtatókörnyezet ÉS a felhasználó játékfájljai
+        return plutonium.installed() and (serverfiles_dir(gid) / g["moddir"]).is_dir()
     return (serverfiles_dir(gid) / g["executable"]).exists()
+
+
+def game_files_dir(inst: dict[str, Any]) -> Path:
+    """A játék saját fájljai (Plutoniumnál máshová is mutathat, pl. a meglévő WaW-ra)."""
+    custom = (inst.get("gamefiles") or "").strip()
+    if custom:
+        path = Path(custom)
+        return path if path.is_absolute() else (config.DATA_DIR / path)
+    return serverfiles_dir(inst["game"])
+
+
+def work_dir(inst: dict[str, Any]) -> Path:
+    """A folyamat munkakönyvtára: Plutoniumnál a futtatókörnyezet könyvtára."""
+    if games.GAMES[inst["game"]].get("platform") == "plutonium":
+        return plutonium.runtime_dir()
+    return serverfiles_dir(inst["game"])
 
 
 def effective_moddir(inst: dict[str, Any]) -> str:
@@ -29,7 +48,7 @@ def effective_moddir(inst: dict[str, Any]) -> str:
 
 
 def mod_path(inst: dict[str, Any]) -> Path:
-    return serverfiles_dir(inst["game"]) / effective_moddir(inst)
+    return game_files_dir(inst) / effective_moddir(inst)
 
 
 def cfg_name(inst: dict[str, Any]) -> str:
@@ -79,6 +98,7 @@ def new_instance(data: dict[str, Any]) -> dict[str, Any]:
         "gametype": data.get("gametype") or g["default_gametype"],
         "map": data.get("map") or g["default_map"],
         "mod": data.get("mod") or "",
+        "gamefiles": data.get("gamefiles") or "",
         "rotation": data.get("rotation") or [],
         "limits": data.get("limits") or {},
         "dvars": dvars,
@@ -93,7 +113,7 @@ def new_instance(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def update_instance(inst: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
-    for key in ("name", "ip", "gametype", "map", "mod", "extra_params"):
+    for key in ("name", "ip", "gametype", "map", "mod", "extra_params", "gamefiles"):
         if key in data and data[key] is not None:
             inst[key] = data[key]
     for key in ("port", "maxplayers"):
@@ -173,10 +193,14 @@ def render_cfg(inst: dict[str, Any]) -> str:
     dvars.setdefault("g_log", f"{inst['id']}.log")
     off = disabled_dvars(inst)
 
+    pluto = games.GAMES[inst["game"]].get("platform") == "plutonium"
     lines.append("// --- alap beállítások ---")
     for key in sorted(dvars):
         val = dvars[key]
         if key in off or val is None or val == "":
+            continue
+        if pluto and key == "key":
+            lines.append("// a Plutonium szerver kulcs az indítási parancsban megy át")
             continue
         lines.append(f'set {key} "{val}"')
     skipped = sorted(k for k in off if dvars.get(k))
@@ -221,9 +245,51 @@ def write_cfg(inst: dict[str, Any]) -> Path:
 
 # --- start command -------------------------------------------------------------
 
+def _wine_binary(g: dict[str, Any]) -> str:
+    wine = os.environ.get("CODPANEL_WINE", "wine")
+    if not shutil.which(wine):
+        raise FileNotFoundError(
+            f"A {g['name']} Windows bináris, a futtatásához wine kell, de nincs telepítve. "
+            "A konténerben: apt install -y wine (vagy wine64/wine32).")
+    return wine
+
+
+def _plutonium_command(inst: dict[str, Any], g: dict[str, Any]) -> list[str]:
+    """wine bin/plutonium-bootstrapper-win32.exe <mode> <játékfájlok> -dedicated ..."""
+    exe = plutonium.bootstrapper_path()
+    if not exe.exists():
+        raise FileNotFoundError(
+            "A Plutonium futtatókörnyezet nincs telepítve. A Játékfájlok oldalon a "
+            "'Plutonium telepítése' gombbal pótolható.")
+    gamefiles = game_files_dir(inst)
+    if not (gamefiles / g["moddir"]).is_dir():
+        raise FileNotFoundError(
+            f"A játékfájlok nincsenek a helyükön: {gamefiles} (hiányzik a "
+            f"{g['moddir']}/ könyvtár). Másold ide a saját World at War telepítésedet, "
+            "vagy állítsd át a 'Játékfájlok könyvtára' mezőt a Beállításoknál.")
+    cmd = [_wine_binary(g), str(exe), g["pluto_mode"], str(gamefiles), "-dedicated"]
+    key = (inst.get("dvars") or {}).get("key", "").strip()
+    if key and "key" not in disabled_dvars(inst):
+        cmd += ["+set", "key", key]
+    mod = (inst.get("mod") or "").strip()
+    if mod:
+        cmd += ["+set", "fs_game", mod]
+    cmd += ["+set", "net_port", str(inst["port"]),
+            "+set", "sv_maxclients", str(inst["maxplayers"])]
+    if gametype_enabled(inst):
+        cmd += ["+set", "g_gametype", inst["gametype"]]
+    if inst.get("extra_params"):
+        cmd += shlex.split(inst["extra_params"])
+    cmd += ["+exec", cfg_name(inst)]
+    cmd += ["+map_rotate"] if rotation_string(inst) else ["+map", inst["map"]]
+    return cmd
+
+
 def build_command(inst: dict[str, Any]) -> list[str]:
     gid = inst["game"]
     g = games.GAMES[gid]
+    if g.get("platform") == "plutonium":
+        return _plutonium_command(inst, g)
     base = serverfiles_dir(gid)
     exe = base / g["executable"]
     if not exe.exists():
@@ -234,15 +300,7 @@ def build_command(inst: dict[str, Any]) -> list[str]:
         raise FileNotFoundError(
             f"A {g['name']} szerverfájlok nincsenek telepítve ({exe}). "
             "Telepítsd a 'Játékfájlok' fülön.")
-    if g.get("wine"):
-        wine = os.environ.get("CODPANEL_WINE", "wine")
-        if not shutil.which(wine):
-            raise FileNotFoundError(
-                f"A {g['name']} Windows bináris, a futtatásához wine kell, de nincs telepítve. "
-                "A konténerben: apt install -y wine (vagy wine64/wine32).")
-        cmd = [wine, str(exe)]
-    else:
-        cmd = [str(exe)]
+    cmd = [_wine_binary(g), str(exe)] if g.get("wine") else [str(exe)]
     template = g.get("start_template", games.START_TEMPLATE)
     cmd += shlex.split(template.format(
         basepath=str(base), ip=inst["ip"], port=inst["port"], maxplayers=inst["maxplayers"]))

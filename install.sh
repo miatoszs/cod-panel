@@ -87,16 +87,21 @@ if [[ -z "$ADMIN_PASS" ]]; then
 fi
 
 say "Admin felhasználó létrehozása"
-CODPANEL_DATA="$PREFIX/data" PYTHONPATH="$PREFIX/app" "$PREFIX/venv/bin/python" -c '
+ADMIN_STATE="$(CODPANEL_DATA="$PREFIX/data" PYTHONPATH="$PREFIX/app" "$PREFIX/venv/bin/python" -c '
 import sys
 from panel import auth, db
 db.init()
 if auth.has_user():
-    print("   admin mar letezik, valtozatlan")
+    print("exists")
 else:
     auth.create_user(sys.argv[1], sys.argv[2])
-    print("   admin letrehozva:", sys.argv[1])
-' "$ADMIN_USER" "$ADMIN_PASS"
+    print("created")
+' "$ADMIN_USER" "$ADMIN_PASS")"
+if [[ "$ADMIN_STATE" == "created" ]]; then
+  echo "   admin létrehozva: $ADMIN_USER"
+else
+  echo "   admin már létezik, a jelszava változatlan"
+fi
 
 # A CoD/CoD2/CoD:UO binárisok libstdc++.so.5-öt kérnek, ami a mai Debianban már
 # nincs csomagban. A panel a Debian archívumából szedi ki a data/lib32 alá.
@@ -129,6 +134,12 @@ systemctl restart codpanel.service
 sleep 2
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+# frissítéskor a meglévő jelszó marad érvényben - ne írjunk ki félrevezető újat
+if [[ "$ADMIN_STATE" == "created" ]]; then
+  PASSWORD_LINE="${ADMIN_PASS}${GENERATED:+   (generált - mentsd el!)}"
+else
+  PASSWORD_LINE="(változatlan - a korábbi marad)"
+fi
 cat <<BANNER
 
   ============================================================
@@ -136,7 +147,7 @@ cat <<BANNER
   ============================================================
    Web felület : http://${IP:-<szerver-ip>}:${PANEL_PORT}
    Admin       : ${ADMIN_USER}
-   Jelszó      : ${ADMIN_PASS}${GENERATED:+   (generált - mentsd el!)}
+   Jelszó      : ${PASSWORD_LINE}
 
    Szolgáltatás: systemctl status|restart|stop codpanel
    Napló       : journalctl -u codpanel -f

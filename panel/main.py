@@ -364,7 +364,7 @@ async def api_instances(query: bool = True) -> list[dict[str, Any]]:
         out.append({**inst, "status": status,
                     "game_name": games.GAMES[inst["game"]]["name"],
                     "game_short": games.GAMES[inst["game"]]["short"],
-                    "installed": instances.game_installed(inst["game"])})
+                    "installed": instances.instance_ready(inst)})
     return out
 
 
@@ -391,7 +391,7 @@ async def api_instance(iid: str) -> dict[str, Any]:
         "status": runner.manager.summary(inst),
         "game_name": games.GAMES[gid]["name"],
         "game_short": games.GAMES[gid]["short"],
-        "installed": instances.game_installed(gid),
+        "installed": instances.instance_ready(inst),
         "platform": games.GAMES[gid].get("platform", "native"),
         "gametypes": games.GAMES[gid]["gametypes"],
         "maps": maps.detect_maps(gid, inst.get("mod")),

@@ -10,13 +10,30 @@ import time
 from collections import deque
 from typing import Any
 
-from . import config, db, instances, legacylibs, rcon
+from . import config, db, games, instances, legacylibs, rcon
 
 STATE_STOPPED = "stopped"
 STATE_STARTING = "starting"
 STATE_RUNNING = "running"
 STATE_STOPPING = "stopping"
 STATE_CRASHED = "crashed"
+
+
+def _wine_env() -> dict[str, str]:
+    """Fejnélküli, csendes wine futtatás saját prefixszel (különben az XDG_RUNTIME_DIR
+    és a hiányzó grafikus meghajtó tele szemeteli a konzolt)."""
+    prefix = config.DATA_DIR / "wineprefix"
+    runtime = config.DATA_DIR / "run"
+    for path in (prefix, runtime):
+        path.mkdir(parents=True, exist_ok=True)
+    runtime.chmod(0o700)
+    return {
+        "WINEPREFIX": str(prefix),
+        "WINEDEBUG": os.environ.get("WINEDEBUG", "-all"),
+        "XDG_RUNTIME_DIR": str(runtime),
+        "DISPLAY": "",
+        "WINEDLLOVERRIDES": os.environ.get("WINEDLLOVERRIDES", "mscoree,mshtml="),
+    }
 
 MAX_RESTARTS = 5  # ennyi sikertelen indítás után nem próbálkozunk tovább
 
@@ -34,17 +51,37 @@ class Runner:
         self.restarts = 0
         self.last_error = ""
         self.missing_lib = ""
+        self.fatal_hint = ""
         self._restart_timer: threading.Timer | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._lock = threading.Lock()
 
     # --- console ---------------------------------------------------------
     LIB_ERROR = "error while loading shared libraries"
+    FATAL_HINTS = (
+        ("does not contain the gamefiles",
+         "A Plutonium nem találja a játékfájlokat. Ehhez a TELJES (Windows-os) "
+         "játéktelepítés kell - a LinuxGSM dedikált szerver csomag (csak .iwd fájlok) "
+         "nem elég. Másold be a teljes játékkönyvtárat, és a Beállításoknál a "
+         "'Játékfájlok könyvtára' mezőben mutass rá."),
+        ("binkw32.dll",
+         "Hiányzik a binkw32.dll, vagyis a játékkönyvtár nem a teljes telepítés. "
+         "A Plutoniumhoz a teljes Windows-os játékmappa kell."),
+        ("invalid game folder",
+         "A megadott játékkönyvtár nem jó a Plutoniumnak - a teljes játéktelepítésre "
+         "kell mutatnia."),
+    )
 
     def emit(self, line: str) -> None:
         if self.LIB_ERROR in line:
             missing = line.split(self.LIB_ERROR, 1)[1].lstrip(": ").split(":")[0].strip()
             self.missing_lib = missing or "?"
+        if not self.fatal_hint:
+            low = line.lower()
+            for needle, hint in self.FATAL_HINTS:
+                if needle.lower() in low:
+                    self.fatal_hint = hint
+                    break
         stamped = f"{time.strftime('%H:%M:%S')} {line.rstrip()}"
         self.lines.append(stamped)
         for q in list(self.subs):
@@ -76,10 +113,13 @@ class Runner:
             instances.write_cfg(inst)
             cwd = instances.work_dir(inst)
             env = dict(os.environ, LD_LIBRARY_PATH=legacylibs.ld_library_path(cwd))
+            if games.GAMES[inst["game"]].get("wine"):
+                env.update(_wine_env())
             self.manual_stop = False
             self.exit_code = None
             self.last_error = ""
             self.missing_lib = ""
+            self.fatal_hint = ""
             self._cancel_restart()
             self.state = STATE_STARTING
             self.emit(f"[panel] indítás: {' '.join(cmd)}")
@@ -126,6 +166,10 @@ class Runner:
             self.restarts = 0            # stabilan futott, tiszta lappal indulunk
 
         if was_manual or code == 0 or not inst.get("autorestart"):
+            return
+        if self.fatal_hint:
+            self.emit(f"[panel] {self.fatal_hint} Automatikus újraindítás kihagyva.")
+            self.state = STATE_CRASHED
             return
         if self.missing_lib:
             self.emit(f"[panel] HIÁNYZÓ RENDSZERKÖNYVTÁR: {self.missing_lib}. "
@@ -216,6 +260,7 @@ class Runner:
             "rss_mb": None,
             "last_error": self.last_error,
             "missing_lib": self.missing_lib,
+            "hint": self.fatal_hint,
         }
         if out["pid"]:
             try:

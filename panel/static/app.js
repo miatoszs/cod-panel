@@ -435,7 +435,11 @@ async function viewServer() {
 function tabOverview(el, i) {
   const st = i.status || {};
   const pl = st.playerlist || [];
-  el.innerHTML = `${st.missing_lib ? libWarning([st.missing_lib], i.game) : ''}<div class="grid c2">
+  el.innerHTML = `${st.missing_lib ? libWarning([st.missing_lib], i.game) : ''}
+    ${st.hint ? `<div class="card" style="border-color:rgba(255,93,93,.45);margin-bottom:18px">
+      <div class="card-head"><h3 style="color:var(--red)">A szerver nem tudott elindulni</h3></div>
+      <p style="margin:0;color:var(--muted);font-size:13.5px">${esc(st.hint)}</p></div>` : ''}
+    <div class="grid c2">
     <div class="card"><h3>Állapot</h3><div class="kv">
       <span class="k">Állapot</span><span>${stateBadge(st)}</span>
       <span class="k">PID</span><span class="mono">${st.pid || '-'}</span>

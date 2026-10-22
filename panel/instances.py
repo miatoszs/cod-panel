@@ -26,6 +26,16 @@ def game_installed(gid: str) -> bool:
     return (serverfiles_dir(gid) / g["executable"]).exists()
 
 
+def instance_ready(inst: dict[str, Any]) -> bool:
+    """Elindítható-e ez a példány (a saját játékfájl-útvonalát is figyelembe véve)."""
+    g = games.GAMES[inst["game"]]
+    if g.get("platform") == "plutonium":
+        return plutonium.installed() and (game_files_dir(inst) / g["moddir"]).is_dir()
+    if (inst.get("gamefiles") or "").strip():
+        return (game_files_dir(inst) / g["executable"]).exists()
+    return game_installed(inst["game"])
+
+
 def game_files_dir(inst: dict[str, Any]) -> Path:
     """A játék saját fájljai (Plutoniumnál máshová is mutathat, pl. a meglévő WaW-ra)."""
     custom = (inst.get("gamefiles") or "").strip()

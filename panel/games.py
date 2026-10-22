@@ -159,6 +159,13 @@ _GAMEPLAY_MODERN = {
 _MODERN_EXTRA = {
     "title": "CoD4 extrák",
     "fields": [
+        {"key": "sv_authtoken", "label": "CoD4X auth token", "type": "password", "default": "",
+         "always_on": True,
+         "desc": "A cod4x.me fiókban igényelhető token. Enélkül a szerver tökéletesen "
+                 "működik és IP-vel lehet rá csatlakozni, csak a nyilvános "
+                 "szerverlistában nem jelenik meg.",
+         "help": "A konzolon ez a sor jelzi a hiányát: 'Can not register server on the "
+                 "masterserver... sv_authtoken'."},
         {"key": "sv_disableClientConsole", "label": "Kliens konzol tiltása", "type": "bool", "default": "0",
          "desc": "Letiltja a játékosok saját konzolját, így nem tudnak parancsokat beírni."},
         {"key": "sv_kickBanTime", "label": "Kick utáni tiltás", "type": "int", "default": "300",

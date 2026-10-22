@@ -250,7 +250,7 @@ def _wine_binary(g: dict[str, Any]) -> str:
     if not shutil.which(wine):
         raise FileNotFoundError(
             f"A {g['name']} Windows bináris, a futtatásához wine kell, de nincs telepítve. "
-            "A konténerben: apt install -y wine (vagy wine64/wine32).")
+            "A konténerben: dpkg --add-architecture i386 && apt install -y wine wine32:i386")
     return wine
 
 

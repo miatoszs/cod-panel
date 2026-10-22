@@ -35,7 +35,7 @@ server = MCPServer(
     name="codpanel",
     instructions=(
         "Call of Duty szerverek vezérlése a COD Panelen keresztül (CoD, CoD:UO, CoD2, "
-        "CoD4, CoD:WaW, MW2). Szerverek indítása/leállítása, élő map- és játékmódváltás, "
+        "CoD4, CoD:WaW eredeti és Plutonium, MW2). Szerverek indítása/leállítása, élő map- és játékmódváltás, "
         "új példány létrehozása, map rotáció, custom mapok telepítése és hibakeresés a "
         "szerver konzoljából. Hibakeresésnél először a console() és a system_status() "
         "eszközt nézd meg. Az azonosító (server_id) a példány rövid neve, pl. 'cod2-fun'."
@@ -327,6 +327,25 @@ def install_custom_map(game: str, url: str, mod: str | None = None) -> dict[str,
                       {"url": url, "mod": mod})
     return {"ok": True, "files": result.get("installed", []),
             "new_maps": result.get("maps", [])}
+
+
+@server.tool(description="A Plutonium futtatókörnyezet állapota (telepítve van-e, van-e wine). "
+                         "A Plutonium alapú játékokhoz (pl. World at War T4) kell.")
+def plutonium_status() -> dict[str, Any]:
+    st = _request("GET", "/api/plutonium")
+    return {"installed": st.get("installed"), "wine_available": st.get("wine"),
+            "size_mb": st.get("size_mb"), "files": st.get("files"),
+            "path": st.get("path"), "status": st.get("status"),
+            "message": st.get("message")}
+
+
+@server.tool(description="A Plutonium futtatókörnyezet telepítése vagy frissítése "
+                         "(kb. 480 MB, háttérben fut). A játékfájlokat NEM tölti le, "
+                         "azokat a felhasználónak kell biztosítania.")
+def install_plutonium(force: bool = False) -> dict[str, Any]:
+    st = _request("POST", "/api/plutonium/install", {"force": force})
+    return {"ok": True, "status": st.get("status"), "message": st.get("message"),
+            "note": "A letöltés a háttérben fut, az állapotot a plutonium_status mutatja."}
 
 
 @server.tool(description="A hiányzó 32 bites rendszerkönyvtárak pótlása (libstdc++.so.5). "

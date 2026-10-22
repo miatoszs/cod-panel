@@ -94,7 +94,7 @@ Három dolog kell hozzá:
    könyvtárába másolod őket, vagy a szerver Beállításainál a *Játékfájlok könyvtára*
    mezőben rámutatsz egy meglévő telepítésre (akár a sima `codwaw` könyvtárra).
 3. **Plutonium szerver kulcs** (plutonium.pw) és **wine** a konténerben
-   (`apt install -y wine`), mert a Plutonium Windows bináris.
+   (`apt install -y wine wine32:i386`), mert a Plutonium Windows bináris.
 
 A panel a Plutonium hivatalos mintája szerint indít:
 
@@ -113,7 +113,7 @@ az Activision annak idején IWNet-es matchmakinggel adta ki. Dedikált szervert 
 
 1. a **saját, Steames MW2 telepítésed** fájljai kellenek (a Microsoft Store-os változat nem jó),
 2. az IW4x fájljai (`iw4x.dll`, `iw4x-launcher`, `userraw/`, `zone/`), és
-3. mivel ez Windows bináris: **wine** a konténerben (`apt install -y wine`).
+3. mivel ez Windows bináris: **wine** a konténerben (`apt install -y wine wine32:i386`).
 
 A fájlokat ide kell másolni: `<data>/serverfiles/mw2/`, úgy hogy az `iw4x.exe` a gyökerében legyen.
 A panel innentől ugyanúgy kezeli, mint a többit (indítás, konzol, cfg, rotáció, mapok) —

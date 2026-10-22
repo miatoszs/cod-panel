@@ -786,7 +786,7 @@ function plutoBlock(g) {
       : '<span class="badge off">nincs telepítve</span>'}</span>
       <span class="k">wine</span><span>${p.wine
       ? '<span class="badge on">megvan</span>'
-      : '<span class="badge err">hiányzik — apt install -y wine</span>'}</span>
+      : '<span class="badge err">hiányzik — apt install -y wine wine32:i386</span>'}</span>
       <span class="k">Játékfájlok</span><span>${g.installed
       ? '<span class="badge on">megvannak</span>'
       : '<span class="badge off">hiányoznak</span>'}</span>

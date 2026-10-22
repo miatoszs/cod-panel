@@ -295,9 +295,8 @@ GAMES: dict[str, dict[str, Any]] = {
         "stock_maps": [
             "mp_backlot", "mp_bloc", "mp_bog", "mp_broadcast", "mp_carentan", "mp_cargoship",
             "mp_citystreets", "mp_convoy", "mp_countdown", "mp_crash", "mp_crash_snow",
-            "mp_creek", "mp_crossfire", "mp_district", "mp_downpour", "mp_farm",
-            "mp_killhouse", "mp_overgrown", "mp_pipeline", "mp_shipment", "mp_showdown",
-            "mp_strike", "mp_vacant",
+            "mp_creek", "mp_crossfire", "mp_farm", "mp_killhouse", "mp_overgrown",
+            "mp_pipeline", "mp_shipment", "mp_showdown", "mp_strike", "mp_vacant",
         ],
         "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
     },
@@ -331,6 +330,46 @@ GAMES: dict[str, dict[str, Any]] = {
         ],
         "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
     },
+    "mw2": {
+        "legacy_libs": [],
+        "name": "Call of Duty: Modern Warfare 2 (IW4x)",
+        "short": "MW2",
+        "lgsm": None,
+        "engine": "iw4.0",
+        "executable": "iw4x.exe",
+        "wine": True,            # Windows bináris, Wine-nal fut
+        "install_mode": "manual",  # a játékfájlokat a felhasználó hozza (saját MW2 + IW4x)
+        "moddir": "userraw",
+        "map_dirs": ["zone/english", "zone", "usermaps"],
+        "asset_ext": [".iwd", ".ff"],
+        "archive_url": "",
+        "archive_md5": "",
+        "archive_name": "",
+        "default_port": 28960,
+        "default_map": "mp_rust",
+        "default_gametype": "war",
+        "default_maxplayers": 18,
+        "needs_32bit": False,
+        # az IW4x Windows bináris: nincs fs_basepath/dedicated 2, a -dedicated kapcsoló
+        # indítja fejnélküli módban, a -stdout pedig a panel konzoljára írat
+        "start_template": ("-dedicated -stdout +set net_port {port} "
+                           "+set sv_maxclients {maxplayers} +set party_enable 0"),
+        "gametypes": [
+            ["war", "Team Deathmatch"], ["dm", "Free for All"], ["dom", "Domination"],
+            ["dd", "Demolition"], ["sab", "Sabotage"], ["sd", "Search & Destroy"],
+            ["koth", "Headquarters"], ["ctf", "Capture the Flag"],
+            ["oneflag", "One Flag CTF"], ["gtnw", "Global Thermonuclear War"],
+        ],
+        "stock_maps": [
+            "mp_afghan", "mp_boneyard", "mp_brecourt", "mp_checkpoint", "mp_derail",
+            "mp_estate", "mp_favela", "mp_highrise", "mp_invasion", "mp_nightshift",
+            "mp_quarry", "mp_rundown", "mp_rust", "mp_subbase", "mp_terminal",
+            "mp_underpass", "mp_complex", "mp_compact", "mp_storm", "mp_abandon",
+            "mp_fuel2", "mp_strike", "mp_trailerpark", "mp_vacant", "mp_crash",
+            "mp_overgrown",
+        ],
+        "limit_dvars": ["timelimit", "scorelimit", "roundlimit"],
+    },
 }
 
 # Start parameter template shared by every supported title (LinuxGSM compatible).
@@ -338,6 +377,74 @@ START_TEMPLATE = (
     '+set sv_punkbuster 0 +set fs_basepath "{basepath}" +set dedicated 2 '
     '+set net_ip {ip} +set net_port {port} +set sv_maxclients {maxplayers}'
 )
+
+
+
+# Emberi nevek a map fájlnevekhez - a kódnevekből nem lehet rájuk ismerni.
+MAP_NAMES: dict[str, dict[str, str]] = {
+    "cod": {
+        "mp_brecourt": "Brecourt", "mp_carentan": "Carentan", "mp_chateau": "Chateau",
+        "mp_dawnville": "Ste. Mère-Église", "mp_depot": "Depot", "mp_harbor": "Harbor",
+        "mp_hurtgen": "Hurtgen", "mp_neuville": "Neuville", "mp_pavlov": "Pavlov",
+        "mp_powcamp": "POW Camp", "mp_railyard": "Railyard", "mp_rocket": "Rocket",
+        "mp_ship": "Ship", "mp_stalingrad": "Stalingrad", "mp_tigertown": "Tigertown",
+    },
+    "coduo": {
+        "mp_arnhem": "Arnhem", "mp_berlin": "Berlin", "mp_cassino": "Cassino",
+        "mp_foy": "Foy", "mp_italy": "Italy", "mp_kharkov": "Kharkov",
+        "mp_kursk": "Kursk", "mp_ponyri": "Ponyri", "mp_rhinevalley": "Rhine Valley",
+        "mp_sicily": "Sicily", "mp_uo_stanjel": "Stanjel", "mp_peaks": "Peaks",
+        "mp_streets": "Streets", "mp_uo_carentan": "Carentan",
+        "mp_uo_dawnville": "Ste. Mère-Église", "mp_uo_depot": "Depot",
+        "mp_uo_harbor": "Harbor", "mp_uo_hurtgen": "Hurtgen", "mp_uo_powcamp": "POW Camp",
+    },
+    "cod2": {
+        "mp_breakout": "Villers-Bocage", "mp_brecourt": "Brecourt", "mp_burgundy": "Burgundy",
+        "mp_carentan": "Carentan", "mp_dawnville": "St. Mere Eglise", "mp_decoy": "El Alamein",
+        "mp_downtown": "Moscow", "mp_farmhouse": "Beltot", "mp_leningrad": "Leningrad",
+        "mp_matmata": "Matmata", "mp_railyard": "Stalingrad", "mp_toujane": "Toujane",
+        "mp_trainstation": "Caen", "mp_harbor": "Rostov", "mp_rhine": "Wallendar",
+    },
+    "cod4": {
+        "mp_backlot": "Backlot", "mp_bloc": "Bloc", "mp_bog": "Bog",
+        "mp_broadcast": "Broadcast", "mp_carentan": "Chinatown", "mp_cargoship": "Wet Work",
+        "mp_citystreets": "District", "mp_convoy": "Ambush", "mp_countdown": "Countdown",
+        "mp_crash": "Crash", "mp_crash_snow": "Winter Crash", "mp_creek": "Creek",
+        "mp_crossfire": "Crossfire", "mp_farm": "Downpour", "mp_killhouse": "Killhouse",
+        "mp_overgrown": "Overgrown", "mp_pipeline": "Pipeline", "mp_shipment": "Shipment",
+        "mp_showdown": "Showdown", "mp_strike": "Strike", "mp_vacant": "Vacant",
+    },
+    "codwaw": {
+        "mp_airfield": "Airfield", "mp_asylum": "Asylum", "mp_castle": "Castle",
+        "mp_cliffside": "Cliffside", "mp_courtyard": "Courtyard", "mp_dome": "Dome",
+        "mp_downfall": "Downfall", "mp_hangar": "Hangar", "mp_makin": "Makin",
+        "mp_makin_day": "Makin Day", "mp_outskirts": "Outskirts",
+        "mp_roundhouse": "Roundhouse", "mp_seelow": "Seelow", "mp_suburban": "Upheaval",
+        "mp_drum": "Banzai", "mp_kneedeep": "Knee Deep", "mp_bgate": "Breach",
+        "mp_docks": "Sub Pens", "mp_subway": "Station", "mp_nachtfeuer": "Nightfire",
+        "mp_vodka": "Corrosion",
+    },
+    "mw2": {
+        "mp_afghan": "Afghan", "mp_boneyard": "Scrapyard", "mp_brecourt": "Wasteland",
+        "mp_checkpoint": "Karachi", "mp_derail": "Derail", "mp_estate": "Estate",
+        "mp_favela": "Favela", "mp_highrise": "Highrise", "mp_invasion": "Invasion",
+        "mp_nightshift": "Skidrow", "mp_quarry": "Quarry", "mp_rundown": "Rundown",
+        "mp_rust": "Rust", "mp_subbase": "Sub Base", "mp_terminal": "Terminal",
+        "mp_underpass": "Underpass", "mp_complex": "Bailout", "mp_compact": "Salvage",
+        "mp_storm": "Storm", "mp_abandon": "Carnival", "mp_fuel2": "Fuel",
+        "mp_strike": "Strike", "mp_trailerpark": "Trailer Park", "mp_vacant": "Vacant",
+        "mp_crash": "Crash", "mp_overgrown": "Overgrown",
+    },
+}
+
+
+def map_label(gid: str, mapname: str) -> str:
+    """Emberi név, ha ismerjük; különben a kódnévből csinálunk olvashatót."""
+    known = MAP_NAMES.get(gid, {}).get(mapname)
+    if known:
+        return known
+    base = mapname[3:] if mapname.startswith("mp_") else mapname
+    return base.replace("_", " ").strip().title() or mapname
 
 
 def dvar_groups(gid: str) -> list[dict[str, Any]]:
@@ -392,6 +499,9 @@ def catalog() -> list[dict[str, Any]]:
             "default_maxplayers": g["default_maxplayers"],
             "gametypes": g["gametypes"],
             "stock_maps": g["stock_maps"],
+            "map_names": {m: map_label(gid, m) for m in g["stock_maps"]},
+            "install_mode": g.get("install_mode", "download"),
+            "wine": bool(g.get("wine")),
             "asset_ext": g["asset_ext"],
             "archive_url": g["archive_url"],
         })

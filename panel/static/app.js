@@ -157,6 +157,75 @@ function sidebar() {
   </aside>`;
 }
 
+
+/* ---------------- map választó (bélyegképekkel) ---------------- */
+const mapImgUrl = (gid, m) => `/api/games/${gid}/mapimage/${encodeURIComponent(m)}`;
+
+function mapOf(maps, name) {
+  return (maps || []).find(m => m.map === name) || { map: name, label: name, source: 'stock' };
+}
+
+function mapCardHtml(gid, m, selected) {
+  const label = m.label || m.map;
+  return `<div class="mapcard ${selected ? 'sel' : ''}" data-map="${esc(m.map)}">
+    <div class="mapthumb"><span class="ph">${esc(label.slice(0, 2).toUpperCase())}</span>
+      <img loading="lazy" alt="" src="${mapImgUrl(gid, m.map)}" onerror="this.remove()"></div>
+    <div class="mapmeta"><b>${esc(label)}</b><span class="mono">${esc(m.map)}</span>
+      ${m.source === 'custom' ? '<span class="badge accent">custom</span>' : ''}</div></div>`;
+}
+
+/* gomb, ami a kiválasztott mapot mutatja képpel; kattintásra megnyitja a választót */
+function mapButtonHtml(gid, m, id) {
+  const label = m.label || m.map;
+  return `<button type="button" class="mapbtn" id="${id}" data-value="${esc(m.map)}">
+    <img class="thumb" alt="" src="${mapImgUrl(gid, m.map)}" onerror="this.style.visibility='hidden'">
+    <span class="lines"><b>${esc(label)}</b><span class="mono">${esc(m.map)}</span></span>
+    <span class="chev">▼</span></button>`;
+}
+
+function pickMap(gid, maps, current) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = v => { if (!done) { done = true; closeModal(); resolve(v); } };
+    modal('Map választása', `
+      <input id="mapsearch" placeholder="Keresés név vagy kód szerint… (pl. Toujane)">
+      <div class="mapgrid" id="mapgrid">${maps.map(m => mapCardHtml(gid, m, m.map === current)).join('')}</div>
+      <div class="help" style="margin-top:12px">A képek a saját játékfájljaidból származnak.
+        Amelyiknél nincs kép, ott a Map kezelőben feltölthetsz sajátot.</div>`,
+      `<button class="btn ghost" id="m-cancel">Mégse</button>`);
+    $('#m-cancel').onclick = () => finish(null);
+    $('#m-x').onclick = () => finish(null);
+    $('.modal-bg').onclick = e => { if (e.target.classList.contains('modal-bg')) finish(null); };
+    $$('#mapgrid .mapcard').forEach(c => c.onclick = () => finish(c.dataset.map));
+    const search = $('#mapsearch');
+    search.oninput = () => {
+      const q = search.value.toLowerCase();
+      $$('#mapgrid .mapcard').forEach(c => {
+        const hit = c.textContent.toLowerCase().includes(q);
+        c.style.display = hit ? '' : 'none';
+      });
+    };
+    search.focus();
+  });
+}
+
+/* a mapbtn gombok bekötése: kattintásra választó, utána frissíti a gomb tartalmát */
+function wireMapButtons(gid, maps) {
+  $$('.mapbtn').forEach(btn => btn.onclick = async () => {
+    const picked = await pickMap(gid, maps, btn.dataset.value);
+    if (!picked) return;
+    btn.dataset.value = picked;
+    const m = mapOf(maps, picked);
+    btn.querySelector('.lines').innerHTML =
+      `<b>${esc(m.label || m.map)}</b><span class="mono">${esc(m.map)}</span>`;
+    const img = btn.querySelector('img');
+    img.style.visibility = '';
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    img.src = mapImgUrl(gid, picked);
+    if (btn.dataset.onpick === 'rotation') btn.dispatchEvent(new CustomEvent('mappicked'));
+  });
+}
+
 /* ---------------- login ---------------- */
 function renderLogin() {
   const setup = S.needsSetup;
@@ -305,7 +374,8 @@ async function newServerModal() {
     const gid = $('input[name=g]:checked').value;
     const g = games.find(x => x.id === gid);
     $('#f-gt').innerHTML = g.gametypes.map(([v, l]) => `<option value="${v}" ${v === g.default_gametype ? 'selected' : ''}>${esc(l)} (${v})</option>`).join('');
-    $('#f-map').innerHTML = g.stock_maps.map(m => `<option ${m === g.default_map ? 'selected' : ''}>${m}</option>`).join('');
+    $('#f-map').innerHTML = g.stock_maps.map(m =>
+      `<option value="${m}" ${m === g.default_map ? 'selected' : ''}>${esc((g.map_names || {})[m] || m)} — ${m}</option>`).join('');
     $('#f-port').value = g.default_port;
     $('#f-slots').value = g.default_maxplayers;
   };
@@ -397,8 +467,7 @@ function tabOverview(el, i) {
       </div>
       <div class="hr"></div>
       <div class="field"><label>Map váltás azonnal</label>
-        <div class="inline"><select id="qmap" style="flex:1">${i.maps.map(m =>
-      `<option ${m.map === i.map ? 'selected' : ''}>${m.map}</option>`).join('')}</select>
+        <div class="inline"><div style="flex:1;min-width:180px">${mapButtonHtml(i.game, mapOf(i.maps, i.map), 'qmap')}</div>
         <select id="qgt">${i.gametypes.map(([v, l]) => `<option value="${v}" ${v === i.gametype ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
         <button class="btn primary" id="qgo">Váltás</button></div>
         <div class="help">A váltás élőben történik (rcon/konzol), a cfg nem módosul.</div></div>
@@ -417,7 +486,8 @@ function tabOverview(el, i) {
   $$('[data-libs]').forEach(b => b.onclick = () => installLibs(b, b.dataset.libs || null));
   $$('[data-cmd]').forEach(b => b.onclick = () => send(b.dataset.cmd));
   $$('[data-kick]').forEach(b => b.onclick = () => send(`clientkick ${b.dataset.kick}`));
-  $('#qgo').onclick = () => send(`g_gametype ${$('#qgt').value}; map ${$('#qmap').value}`);
+  wireMapButtons(i.game, i.maps);
+  $('#qgo').onclick = () => send(`g_gametype ${$('#qgt').value}; map ${$('#qmap').dataset.value}`);
   $('#del').onclick = async () => {
     if (!confirm(`Biztosan törlöd a(z) "${i.name}" szervert?`)) return;
     try { await DEL('/api/instances/' + i.id); toast('Törölve.', 'ok'); go('servers'); } catch (e) { fail(e); }
@@ -511,9 +581,8 @@ function tabSettings(el, i) {
           <select id="s-gt">${i.gametypes.map(([v, l]) =>
             `<option value="${v}" ${v === i.gametype ? 'selected' : ''}>${esc(l)} (${v})</option>`).join('')}</select>
           <div class="desc">${esc(i.gametype_desc || '')}</div></div>
-        ${baseField('Induló map', '+map', `<select id="s-map">${i.maps.map(m =>
-            `<option ${m.map === i.map ? 'selected' : ''}>${m.map}${m.source === 'custom' ? ' (custom)' : ''}</option>`).join('')}</select>`,
-    'Ezzel a mappal indul a szerver. Ha van map rotáció, a panel helyette a rotációt indítja (+map_rotate).')}
+        ${baseField('Induló map', '+map', mapButtonHtml(i.game, mapOf(i.maps, i.map), 's-map'),
+    'Ezzel a mappal indul a szerver. Kattints a képre a választóhoz. Ha van map rotáció, a panel helyette a rotációt indítja (+map_rotate).')}
         ${baseField('Mod', 'fs_game', `<input id="s-mod" list="modlist" value="${esc(i.mod || '')}" placeholder="(alap)">
           <datalist id="modlist">${i.mods.map(m => `<option>${m}</option>`).join('')}</datalist>`,
       'Mod könyvtár neve (pl. mods/mymod). Üresen hagyva az alap játék fut.')}
@@ -542,6 +611,7 @@ function tabSettings(el, i) {
       <button class="btn" id="saverestart">Mentés + újraindítás</button>
     </div>`;
   wireToggles();
+  wireMapButtons(i.game, i.maps);
 
   const collect = () => {
     const dvars = {};
@@ -561,7 +631,7 @@ function tabSettings(el, i) {
       name: $('#s-name').value, ip: $('#s-ip').value, port: +$('#s-port').value,
       maxplayers: +$('#s-slots').value, gametype: $('#s-gt').value,
       gametype_enabled: $('[data-gt-toggle]').checked,
-      map: $('#s-map').value.replace(' (custom)', ''),
+      map: $('#s-map').dataset.value,
       mod: $('#s-mod').value, extra_params: $('#s-extra').value,
       autostart: $('#s-autostart').checked, autorestart: $('#s-autorestart').checked,
       dvars, dvars_off, limits: newLimits, extra_cfg: $('#s-extracfg').value,
@@ -584,10 +654,12 @@ function tabRotation(el, i) {
   const draw = () => {
     $('#rot').innerHTML = rot.length ? rot.map((r, idx) => `<div class="rot-row">
       <span class="idx">${idx + 1}.</span>
+      <img class="thumb" style="width:52px;height:38px;border-radius:6px;object-fit:cover;background:#1b2534"
+           alt="" src="${mapImgUrl(i.game, r.map)}" onerror="this.style.visibility='hidden'">
       <select data-r="${idx}" data-k="gametype">${i.gametypes.map(([v, l]) =>
       `<option value="${v}" ${v === r.gametype ? 'selected' : ''}>${esc(l)} (${v})</option>`).join('')}</select>
       <select data-r="${idx}" data-k="map">${i.maps.map(m =>
-      `<option ${m.map === r.map ? 'selected' : ''}>${m.map}</option>`).join('')}</select>
+      `<option value="${m.map}" ${m.map === r.map ? 'selected' : ''}>${esc(m.label || m.map)} — ${m.map}</option>`).join('')}</select>
       <button class="btn sm ghost" data-up="${idx}">↑</button>
       <button class="btn sm ghost" data-down="${idx}">↓</button>
       <button class="btn sm red" data-rm="${idx}">${ICON.trash}</button></div>`).join('')
@@ -600,8 +672,8 @@ function tabRotation(el, i) {
   };
   el.innerHTML = `<div class="card" style="margin-bottom:16px">
       <div class="card-head"><h3>Map rotáció</h3><div class="spacer"></div>
-        <select id="addgt">${i.gametypes.map(([v, l]) => `<option value="${v}" ${v === i.gametype ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
-        <select id="addmap">${i.maps.map(m => `<option>${m.map}${m.source === 'custom' ? ' ★' : ''}</option>`).join('')}</select>
+        <select id="addgt" style="max-width:190px">${i.gametypes.map(([v, l]) => `<option value="${v}" ${v === i.gametype ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+        <div style="width:230px">${mapButtonHtml(i.game, mapOf(i.maps, i.map), 'addmap')}</div>
         <button class="btn sm primary" id="add">${ICON.plus} Hozzáadás</button></div>
       <div id="rot"></div>
       <div class="hr"></div>
@@ -615,7 +687,8 @@ function tabRotation(el, i) {
     <div class="btn-row"><button class="btn primary" id="save">Mentés</button>
       <button class="btn" id="saverestart">Mentés + újraindítás</button></div>`;
   draw();
-  $('#add').onclick = () => { rot.push({ gametype: $('#addgt').value, map: $('#addmap').value.replace(' ★', '') }); draw(); };
+  wireMapButtons(i.game, i.maps);
+  $('#add').onclick = () => { rot.push({ gametype: $('#addgt').value, map: $('#addmap').dataset.value }); draw(); };
   $('#all-stock').onclick = () => { i.maps.filter(m => m.source === 'stock').forEach(m => rot.push({ gametype: $('#addgt').value, map: m.map })); draw(); };
   $('#all-custom').onclick = () => { i.maps.filter(m => m.source === 'custom').forEach(m => rot.push({ gametype: $('#addgt').value, map: m.map })); draw(); };
   $('#clear').onclick = () => { rot = []; draw(); };
@@ -735,12 +808,22 @@ async function viewGames() {
         <div class="help">${esc(g.message)}</div>` : ''}
       ${g.status === 'error' ? `<div class="badge err" style="margin-bottom:8px">${esc(g.message)}</div>` : ''}
       <div class="btn-row">
-        <button class="btn ${g.installed ? '' : 'primary'}" data-install="${g.id}" ${busy ? 'disabled' : ''}>
-          ${ICON.download} ${g.installed ? 'Újratelepítés' : 'Szerverfájlok telepítése'}</button>
+        ${g.install_mode === 'manual' ? ''
+      : `<button class="btn ${g.installed ? '' : 'primary'}" data-install="${g.id}" ${busy ? 'disabled' : ''}>
+             ${ICON.download} ${g.installed ? 'Újratelepítés' : 'Szerverfájlok telepítése'}</button>`}
         <button class="btn sm ghost" data-maps="${g.id}">Mapok</button>
         ${g.installed ? `<button class="btn sm red" data-rm="${g.id}">${ICON.trash}</button>` : ''}
       </div>
-      <div class="help" style="margin-top:8px">Forrás: <span class="mono">${esc(g.archive_url)}</span></div>
+      ${g.install_mode === 'manual'
+      ? `<div class="help" style="margin-top:10px">
+           Ehhez a játékhoz <b>nincs letölthető szerverfájl</b> — a saját MW2 (Steam) telepítésed
+           és az <a href="https://docs.iw4x.io/hosting/server-hosting/" target="_blank" rel="noopener">IW4x</a>
+           fájljai kellenek. Másold őket ide:
+           <div class="mono" style="margin-top:6px">${esc(g.path)}</div>
+           úgy, hogy a <span class="mono">${esc(g.executable)}</span> a könyvtár gyökerébe kerüljön.
+           Windows bináris, ezért <span class="mono">wine</span> is kell a konténerben
+           (<span class="mono">apt install wine</span>).</div>`
+      : `<div class="help" style="margin-top:8px">Forrás: <span class="mono">${esc(g.archive_url)}</span></div>`}
     </div>`;
   };
   const allMissing = [...new Set(games.flatMap(g => g.missing_libs || []))];
@@ -800,9 +883,15 @@ async function viewMaps() {
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-head"><h3>Elérhető mapok (${data.maps.length})</h3><div class="spacer"></div>
-        <span class="badge accent">★ = custom</span></div>
-      <div class="chip-list">${data.maps.map(m => `<span class="chip ${m.source === 'custom' ? 'custom' : ''}"
-        title="${esc(m.file || 'alap tartalom')}">${m.source === 'custom' ? '★ ' : ''}${esc(m.map)}</span>`).join('')}</div></div>
+        <button class="btn sm" id="genimg">Bélyegképek legyártása</button></div>
+      <div class="help" style="margin-bottom:12px">A képek a saját játékfájljaidból (loadscreen textúrák) készülnek.
+        Ha valamelyiknél nincs kép, a kártya bal felső sarkában lévő gombbal tölthetsz fel sajátot.</div>
+      <div class="mapgrid">${data.maps.map(m => `<div class="mapcard" data-map="${esc(m.map)}">
+        <button class="imgbtn" data-setimg="${esc(m.map)}">kép</button>
+        <div class="mapthumb"><span class="ph">${esc((m.label || m.map).slice(0, 2).toUpperCase())}</span>
+          <img loading="lazy" alt="" src="${mapImgUrl(gid, m.map)}" onerror="this.remove()"></div>
+        <div class="mapmeta"><b>${esc(m.label || m.map)}</b><span class="mono">${esc(m.map)}</span>
+          ${m.source === 'custom' ? '<span class="badge accent">custom map</span>' : ''}</div></div>`).join('')}</div></div>
     <div class="card pad0">
       <div style="padding:18px 18px 0"><h3>Telepített fájlok</h3></div>
       <table><thead><tr><th>Fájl</th><th>Mapok</th><th>Méret</th><th></th></tr></thead><tbody>
@@ -841,14 +930,59 @@ async function viewMaps() {
     if (!confirm('Törlöd: ' + b.dataset.del + '?')) return;
     try { await DEL(`/api/games/${gid}/maps?rel=${encodeURIComponent(b.dataset.del)}`); viewMaps(); } catch (e) { fail(e); }
   });
+  $('#genimg').onclick = async (ev) => {
+    const btn = ev.currentTarget;
+    btn.disabled = true; btn.innerHTML = '<span class="loading"></span> készítés...';
+    try {
+      const r = await POST(`/api/games/${gid}/mapimages`);
+      toast(`${r.generated.length} kép elkészült${r.missing.length ? `, ${r.missing.length} maphoz nincs kép a játékfájlokban` : ''}`, 'ok');
+      viewMaps();
+    } catch (e) { fail(e); btn.disabled = false; btn.textContent = 'Bélyegképek legyártása'; }
+  };
+  $$('[data-setimg]').forEach(b => b.onclick = (ev) => {
+    ev.stopPropagation();
+    mapImageModal(gid, b.dataset.setimg);
+  });
+}
+
+function mapImageModal(gid, mapname) {
+  modal(`Kép a(z) ${mapname} maphoz`, `
+    <div class="mapthumb" style="max-width:320px;border-radius:12px;margin-bottom:16px">
+      <span class="ph">nincs kép</span>
+      <img alt="" src="${mapImgUrl(gid, mapname)}?t=${Date.now()}" onerror="this.remove()"></div>
+    <div class="field"><label>Kép feltöltése (PNG, JPG, GIF, WEBP)</label>
+      <input type="file" id="mi-file" accept="image/*"></div>
+    <div class="field"><label>vagy kép URL-je</label>
+      <input id="mi-url" placeholder="https://.../map.jpg"></div>
+    <div class="help">A saját kép felülírja a játékfájlokból kinyert bélyegképet.</div>`,
+    `<button class="btn red ghost" id="mi-clear">Saját kép törlése</button>
+     <button class="btn ghost" id="mi-cancel">Mégse</button>
+     <button class="btn primary" id="mi-save">Mentés</button>`);
+  $('#mi-cancel').onclick = closeModal;
+  $('#mi-clear').onclick = async () => {
+    try { await DEL(`/api/games/${gid}/mapimage/${encodeURIComponent(mapname)}`); closeModal(); toast('Saját kép törölve.', 'ok'); render(); }
+    catch (e) { fail(e); }
+  };
+  $('#mi-save').onclick = async () => {
+    const file = $('#mi-file').files[0];
+    const url = $('#mi-url').value.trim();
+    try {
+      if (file) {
+        const fd = new FormData(); fd.append('file', file);
+        await api('POST', `/api/games/${gid}/mapimage/${encodeURIComponent(mapname)}`, fd, true);
+      } else if (url) {
+        await POST(`/api/games/${gid}/mapimage/${encodeURIComponent(mapname)}`, { url });
+      } else { return toast('Válassz fájlt vagy adj meg URL-t.', 'err'); }
+      closeModal(); toast('Kép mentve.', 'ok'); render();
+    } catch (e) { fail(e); }
+  };
 }
 
 function tabMapsEmbed(el, i) {
   el.innerHTML = `<div class="card"><h3>Mapok ehhez a szerverhez</h3>
     <p style="color:var(--muted);font-size:13.5px">Játék: <b>${esc(i.game_name)}</b>, mod könyvtár:
       <span class="mono">${esc(i.mod || i.mods[0])}</span></p>
-    <div class="chip-list" style="margin:14px 0">${i.maps.map(m =>
-    `<span class="chip ${m.source === 'custom' ? 'custom' : ''}">${m.source === 'custom' ? '★ ' : ''}${esc(m.map)}</span>`).join('')}</div>
+    <div class="mapgrid" style="margin:14px 0">${i.maps.map(m => mapCardHtml(i.game, m, m.map === i.map)).join('')}</div>
     <div class="btn-row"><button class="btn primary" id="tomaps">${ICON.download} Map letöltése / feltöltése</button></div></div>`;
   $('#tomaps').onclick = () => { S.mapsMod = i.mod || null; go('maps/' + i.game); };
 }

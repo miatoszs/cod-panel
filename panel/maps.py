@@ -10,7 +10,8 @@ from typing import Any
 
 from . import config, db, games, installer, instances
 
-BSP_RE = re.compile(r"maps/(?:mp/)?([A-Za-z0-9_]+)\.(?:bsp|d3dbsp)$", re.I)
+# csak a többjátékos pályák kellenek: ezek mindig mp_ előtaggal vannak
+BSP_RE = re.compile(r"maps/(?:mp/)?(mp_[A-Za-z0-9_]+)\.(?:bsp|d3dbsp)$", re.I)
 ASSET_EXT = {".iwd", ".pk3", ".ff"}
 ARCHIVE_EXT = {".zip"}
 KEEP_TREE = ("usermaps/", "main/", "mods/", "uo/", "zone/", "raw/")
@@ -81,8 +82,17 @@ def _is_stock(gid: str, filename: str) -> bool:
     return bool(re.match(r"(iw_|localized_|dlc|patch|common|code_post_gfx|ui_mp|en_)", stem))
 
 
+def map_dirs(gid: str) -> list[str]:
+    """Könyvtárak, ahol .ff alapú mapok lehetnek (CoD4/WaW/MW2)."""
+    g = games.GAMES[gid]
+    if g.get("map_dirs"):
+        return list(g["map_dirs"])
+    return ["usermaps"] if gid in ("cod4", "codwaw") else []
+
+
 def detect_maps(gid: str, mod: str | None = None) -> list[dict[str, Any]]:
     """Every map the server can load: stock list + maps found in installed assets."""
+    from . import mapimages
     found: dict[str, dict[str, Any]] = {}
     for name in games.GAMES[gid]["stock_maps"]:
         found[name] = {"map": name, "source": "stock", "file": None}
@@ -91,13 +101,24 @@ def detect_maps(gid: str, mod: str | None = None) -> list[dict[str, Any]]:
         for name in asset["maps"]:
             if name not in found or found[name]["source"] == "stock":
                 found[name] = {"map": name, "source": "custom", "file": asset["name"]}
-    if gid in ("cod4", "codwaw"):
-        usermaps = base / "usermaps"
-        if usermaps.is_dir():
-            for d in usermaps.iterdir():
-                if d.is_dir() and d.name.startswith("mp_"):
-                    found[d.name] = {"map": d.name, "source": "custom",
-                                     "file": f"usermaps/{d.name}"}
+
+    for rel in map_dirs(gid):
+        folder = base / rel
+        if not folder.is_dir():
+            continue
+        for item in folder.iterdir():
+            if item.is_dir() and item.name.startswith("mp_"):
+                found.setdefault(item.name, {"map": item.name, "source": "custom",
+                                             "file": f"{rel}/{item.name}"})
+            elif item.is_file() and item.suffix.lower() == ".ff" \
+                    and item.stem.startswith("mp_"):
+                name = re.sub(r"(_load|_patch)$", "", item.stem)
+                found.setdefault(name, {"map": name, "source": "custom",
+                                        "file": f"{rel}/{item.name}"})
+
+    for name, entry in found.items():
+        entry["label"] = games.map_label(gid, name)
+        entry["image"] = mapimages.have_image(gid, name)
     return sorted(found.values(), key=lambda x: (x["source"] != "custom", x["map"]))
 
 

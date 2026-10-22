@@ -9,10 +9,11 @@ indítási paraméterek, de **CLI helyett böngészőből** kezelhetően. Proxmo
 
 | | |
 |---|---|
-| **5 játék** | Call of Duty, CoD: United Offensive, Call of Duty 2, Call of Duty 4 (CoD4X), CoD: World at War |
+| **6 játék** | Call of Duty, CoD: United Offensive, Call of Duty 2, Call of Duty 4 (CoD4X), CoD: World at War, Modern Warfare 2 (IW4x) |
 | **Több szerver** | Egy panelből korlátlan számú példány, mindegyiknek saját port, cfg, log, konzol |
 | **Egy kattintásos játékfájl-telepítés** | A LinuxGSM tükrökről, MD5 ellenőrzéssel |
 | **Egy kattintásos custom map** | URL-ről letöltve vagy fájlból feltöltve (.iwd / .pk3 / .ff / .zip), utána azonnal kiválasztható |
+| **Képes map választó** | a map loadscreenje a saját játékfájljaidból, emberi névvel (mp_checkpoint → Karachi) |
 | **Minden beállítás űrlapon** | gamemode, map, slotok, friendly fire, killcam, limitek, rcon, fast download, sv_pure, gravitáció… |
 | **Dvar-onkénti be/ki kapcsoló** | minden beállítás külön kikapcsolható (akkor ki sem kerül a cfg-be), és mindegyik alatt ott a magyar nyelvű magyarázat, hogy mit csinál |
 | **Map rotáció szerkesztő** | sorrend, játékmód maponként, `sv_mapRotation` generálás |
@@ -22,6 +23,24 @@ indítási paraméterek, de **CLI helyett böngészőből** kezelhetően. Proxmo
 A panel ugyanazokat a binárisokat és indítási paramétereket használja, mint a LinuxGSM
 `codserver` / `coduoserver` / `cod2server` / `cod4server` / `codwawserver` scriptek,
 így a meglévő tudás és a community cfg-k változtatás nélkül működnek.
+
+## Map előnézeti képek
+
+A map kódnevekből (`mp_nightshift`, `mp_checkpoint`) nehéz felismerni a pályát, ezért a panel
+kétféleképpen segít:
+
+- **Emberi nevek**: minden alap maphoz ott a rendes neve (`mp_checkpoint` → *Karachi*,
+  `mp_breakout` → *Villers-Bocage*), ismeretlen mapnál a kódnévből képez olvashatót.
+- **Bélyegképek**: a panel a játék `.iwd` csomagjaiból kiszedi a map `loadscreen_<map>.iwi`
+  textúráját, dekódolja (DXT1/3/5, külső könyvtár nélkül) és PNG bélyegképet készít belőle.
+  A képek tehát a **saját telepítésedből** származnak, a panel nem tölt le képet sehonnan.
+
+A map választó innentől egy rácsos, kereshető ablak képekkel — a Beállítások *Induló map*
+mezőjénél, a rotáció szerkesztőben és az azonnali map váltásnál is.
+
+Ha egy maphoz nincs kép (pl. a CoD4/WaW/MW2 egyes textúrái `.ff` fastfile-ban vannak, amit nem
+bontunk ki), a Map kezelőben a kártya sarkában lévő **kép** gombbal tölthetsz fel sajátot vagy
+adhatsz meg kép-URL-t.
 
 ## Telepítés
 
@@ -58,6 +77,22 @@ A telepítő elintézi:
 - `codpanel` rendszerfelhasználó, Python venv, függőségek,
 - systemd service (`codpanel`), automatikus indítással,
 - admin felhasználó (jelszó generálva, ha nem adod meg).
+
+### Modern Warfare 2 (IW4x) — eltérő telepítés
+
+Az MW2-höz **nincs hivatalos dedikált szerver** és nincs letölthető szerverfájl-csomag sem:
+az Activision annak idején IWNet-es matchmakinggel adta ki. Dedikált szervert a közösségi
+[IW4x](https://docs.iw4x.io/hosting/server-hosting/) projekttel lehet üzemeltetni, amihez:
+
+1. a **saját, Steames MW2 telepítésed** fájljai kellenek (a Microsoft Store-os változat nem jó),
+2. az IW4x fájljai (`iw4x.dll`, `iw4x-launcher`, `userraw/`, `zone/`), és
+3. mivel ez Windows bináris: **wine** a konténerben (`apt install -y wine`).
+
+A fájlokat ide kell másolni: `<data>/serverfiles/mw2/`, úgy hogy az `iw4x.exe` a gyökerében legyen.
+A panel innentől ugyanúgy kezeli, mint a többit (indítás, konzol, cfg, rotáció, mapok) —
+a szervert `wine iw4x.exe -dedicated -stdout +set net_port ... +exec <id>.cfg` paranccsal indítja,
+a cfg a `userraw/` könyvtárba kerül. A panel kb. 12 GB helyet kér ehhez (az IW4x Shrink
+eszközzel 7-8 GB-ra csökkenthető).
 
 ### C) Fejlesztéshez / kipróbáláshoz (bármilyen Linuxon)
 

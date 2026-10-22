@@ -1,8 +1,10 @@
 """Instance model: defaults, validation, server.cfg generation, start command."""
 from __future__ import annotations
 
+import os
 import re
 import shlex
+import shutil
 import uuid
 from pathlib import Path
 from typing import Any
@@ -225,11 +227,24 @@ def build_command(inst: dict[str, Any]) -> list[str]:
     base = serverfiles_dir(gid)
     exe = base / g["executable"]
     if not exe.exists():
+        if g.get("install_mode") == "manual":
+            raise FileNotFoundError(
+                f"A {g['name']} fájljai hiányoznak. Másold a saját MW2 + IW4x "
+                f"telepítésedet ide: {base} (a {g['executable']} a gyökerébe kerüljön).")
         raise FileNotFoundError(
             f"A {g['name']} szerverfájlok nincsenek telepítve ({exe}). "
             "Telepítsd a 'Játékfájlok' fülön.")
-    cmd = [str(exe)]
-    cmd += shlex.split(games.START_TEMPLATE.format(
+    if g.get("wine"):
+        wine = os.environ.get("CODPANEL_WINE", "wine")
+        if not shutil.which(wine):
+            raise FileNotFoundError(
+                f"A {g['name']} Windows bináris, a futtatásához wine kell, de nincs telepítve. "
+                "A konténerben: apt install -y wine (vagy wine64/wine32).")
+        cmd = [wine, str(exe)]
+    else:
+        cmd = [str(exe)]
+    template = g.get("start_template", games.START_TEMPLATE)
+    cmd += shlex.split(template.format(
         basepath=str(base), ip=inst["ip"], port=inst["port"], maxplayers=inst["maxplayers"]))
     if g.get("extra_params"):
         cmd += shlex.split(g["extra_params"].format(basepath=str(base)))

@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from fastapi.staticfiles import StaticFiles
 
 from . import (__version__, auth, config, db, games, installer, instances, legacylibs,
-               maps, rcon, runner)
+               mapimages, maps, rcon, runner)
 
 app = FastAPI(title="COD Panel", version=__version__, docs_url="/api/docs")
 
@@ -178,6 +178,7 @@ async def api_game_remove(gid: str) -> dict[str, Any]:
         if inst["game"] == gid and runner.manager.get(inst["id"]).is_alive():
             raise HTTPException(409, "Előbb állítsd le a játék futó szervereit.")
     installer.remove(gid)
+    mapimages.reset(gid)
     return installer.state(gid)
 
 
@@ -212,6 +213,59 @@ async def api_maps(gid: str, mod: str | None = None) -> dict[str, Any]:
         "gametypes": games.GAMES[gid]["gametypes"],
         "installed": instances.game_installed(gid),
     }
+
+
+@app.get("/api/games/{gid}/mapimage/{mapname}")
+async def api_mapimage(gid: str, mapname: str):
+    _game(gid)
+    path = await asyncio.to_thread(mapimages.image_path, gid, mapname)
+    if not path:
+        raise HTTPException(404, "Ehhez a maphoz nincs kép.")
+    return FileResponse(path, media_type=mapimages.media_type(path),
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.post("/api/games/{gid}/mapimage/{mapname}")
+async def api_mapimage_set(gid: str, mapname: str, request: Request,
+                           file: UploadFile | None = File(None),
+                           url: str | None = Form(None)) -> dict[str, Any]:
+    """Saját kép a maphoz: feltöltve vagy URL-ről (pl. .ff-es játékokhoz)."""
+    _game(gid)
+    try:
+        if file is not None:
+            data = await file.read()
+            path = mapimages.save_custom(gid, mapname, data, file.filename or "kep.png")
+        else:
+            link = (url or "").strip()
+            if not link:
+                body = await _body(request)
+                link = (body.get("url") or "").strip()
+            if not link.startswith(("http://", "https://")):
+                raise ValueError("Adj meg képfájlt vagy http(s) URL-t.")
+            name = Path(link.split("?")[0]).name or "kep.png"
+            tmp = config.DOWNLOAD_DIR / f"mapimg_{gid}_{mapname}"
+            await asyncio.to_thread(installer.download_file, link, tmp, None, "map kép")
+            try:
+                path = mapimages.save_custom(gid, mapname, tmp.read_bytes(), name)
+            finally:
+                tmp.unlink(missing_ok=True)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"ok": True, "map": mapname, "file": path.name}
+
+
+@app.delete("/api/games/{gid}/mapimage/{mapname}")
+async def api_mapimage_clear(gid: str, mapname: str) -> dict[str, Any]:
+    _game(gid)
+    mapimages.clear_custom(gid, mapname)
+    return {"ok": True}
+
+
+@app.post("/api/games/{gid}/mapimages")
+async def api_mapimages_prepare(gid: str) -> dict[str, Any]:
+    """Minden map bélyegképének legyártása a játékfájlokból."""
+    _game(gid)
+    return await asyncio.to_thread(mapimages.prepare, gid)
 
 
 @app.post("/api/games/{gid}/maps/url")

@@ -338,3 +338,53 @@ select, textarea { color: var(--text); background-color: #0e131c; }
 /* a szám-mezők pörgetőgombjai is a sötét témához igazodjanak */
 input[type=number] { color-scheme: dark; }
 input::placeholder, textarea::placeholder { color: #5f6d85; opacity: 1; }
+
+/* ---------- map választó bélyegképekkel ---------- */
+.mapgrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 12px;
+}
+.mapcard {
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  background: #0f141d; cursor: pointer; transition: .15s; position: relative;
+}
+.mapcard:hover { border-color: var(--accent); transform: translateY(-2px); }
+.mapcard.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(242,163,60,.25); }
+.mapcard.sel::after {
+  content: "✓"; position: absolute; top: 8px; right: 9px; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--accent); color: #19130a; font-size: 13px;
+  font-weight: 700; display: grid; place-items: center;
+}
+.mapthumb {
+  position: relative; aspect-ratio: 4 / 3; background: linear-gradient(135deg, #1b2534, #121823);
+  display: grid; place-items: center; overflow: hidden;
+}
+.mapthumb img { width: 100%; height: 100%; object-fit: cover; display: block; position: relative; }
+.mapthumb .ph { position: absolute; font-size: 26px; font-weight: 700; color: #33415c; letter-spacing: 1px; }
+.mapmeta { padding: 9px 11px; display: flex; flex-direction: column; gap: 2px; }
+.mapmeta b { font-size: 13.5px; }
+.mapmeta .mono { font-size: 11px; color: var(--muted); }
+.mapmeta .badge { align-self: flex-start; margin-top: 4px; }
+.mapcard .imgbtn {
+  position: absolute; top: 8px; left: 8px; opacity: 0; transition: .15s;
+  background: rgba(10,14,20,.85); border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px 8px; font-size: 11.5px; cursor: pointer;
+}
+.mapcard:hover .imgbtn { opacity: 1; }
+.mapcard .imgbtn:hover { border-color: var(--accent); color: var(--accent-2); }
+
+.mapbtn {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 7px 9px; border-radius: 10px; border: 1px solid var(--border);
+  background: #0e131c; cursor: pointer; transition: .14s;
+}
+.mapbtn:hover { border-color: var(--accent); }
+.mapbtn .thumb {
+  width: 56px; height: 42px; border-radius: 7px; flex: 0 0 56px; object-fit: cover;
+  background: linear-gradient(135deg, #1b2534, #121823);
+}
+.mapbtn .lines { display: flex; flex-direction: column; min-width: 0; }
+.mapbtn .lines b { font-size: 13.5px; }
+.mapbtn .lines span { font-size: 11px; color: var(--muted); }
+.mapbtn .chev { margin-left: auto; color: var(--muted); font-size: 12px; }
+#mapsearch { margin-bottom: 14px; }
